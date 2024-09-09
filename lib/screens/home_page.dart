@@ -84,7 +84,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _startNewList() {
-    print("Inside start new list");
     speak("Starting a new list. Please say items to add. Say 'finish list' when done.");
     setState(() {
       _creatingNewList = true;
@@ -117,7 +116,6 @@ class _HomePageState extends State<HomePage> {
       String item = _shoppingList.items[i];
       await speak("Item ${i + 1}: $item");
       
-      // Add a short pause between items for better comprehension
       await Future.delayed(Duration(milliseconds: 1500));
     }
 
@@ -130,7 +128,6 @@ class _HomePageState extends State<HomePage> {
       print("Item =");
       print(nextItem);
       await speak("Next item: $nextItem.");
-      // Wait for user confirmation (you might want to add a button for this)
       _shoppingList.markItemAsRead(nextItem);
     } else {
       await speak("You've found all items on your list!");
@@ -148,14 +145,16 @@ class _HomePageState extends State<HomePage> {
     _shoppingList.clearList();
 
     setState(() {
-      // This will trigger a rebuild of the UI if you're displaying the list
     });
 
     await speak("All $itemCount items have been deleted from your shopping list.");
   }
 
-  void _onSpeechResult(result) {
-    processCommand(result);
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    if(result.finalResult){
+      processCommand(result);
+    }
+    
   }
 
   speak(String text) async {
