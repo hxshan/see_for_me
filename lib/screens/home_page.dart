@@ -17,6 +17,7 @@ class _HomePageState extends State<HomePage> {
 
   bool _speechEnabled = false;
   String wordsSpoken = "";
+  String response = "";
 
   @override
   void initState() {
@@ -39,21 +40,44 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
-  void processCommand(result) {
-    String response = "";
+ // void processCommand(result) {
+  //  String response = "";
     // if (result.toString().toLowerCase().contains('hello')) {
     //   response = maze[4][5].walkable.toString();
     // } else {
     //   response = "${result.recognizedWords}";
     // }
-    setState(() {
+   // setState(() {
       //wordsSpoken = response;
-      wordsSpoken = "${result.recognizedWords}";
+   //   wordsSpoken = "${result.recognizedWords}";
+   // });
+ //   speak("wajee is the best");
+ // }
+
+  void processCommand(SpeechRecognitionResult result) {
+    String spokenWords = result.recognizedWords.toLowerCase();
+    // Compare the spoken words with "order online"
+    if (spokenWords.contains('order online')) {
+      response = "Navigating to Order Page";
+      speak(response); // Speak the response
+      // Navigate to the '/order' page
+      Navigator.pushNamed(context, '/order');
+    } else {
+      response = "Say again";
+      speak(response); // Speak the response
+    }
+
+    setState(() {
+      wordsSpoken = spokenWords;
     });
   }
 
-  void _onSpeechResult(result) {
-    processCommand(result);
+
+   void _onSpeechResult(SpeechRecognitionResult result) {
+    // Only process the command when the user has finished speaking
+    if (result.finalResult) {
+      processCommand(result);
+    }
   }
 
   speak(String text) async {
@@ -65,6 +89,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text("Home page"),
+      ),
       backgroundColor: Colors.white,
       body: Center(
         child: Column(
