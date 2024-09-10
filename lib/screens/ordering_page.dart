@@ -1,93 +1,16 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:see_for_me/models/cartItem.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
-
-class GroceryItem {
-  final String name;
-  final String type;
-  final String brand;
-  final double price;
-  final double quantity;
-  final String unit;
-
-  GroceryItem({
-    required this.name,
-    required this.type,
-    required this.brand,
-    required this.price,
-    required this.quantity,
-    required this.unit
-  });
-
-  @override
-  String toString() {
-    return '''
-    Item Name: $name
-    Brand: $brand
-    Type: $type
-    Price: \$${price.toStringAsFixed(2)}
-    Quantity: ${quantity.toStringAsFixed(2)} $unit
-    ''';
-  }
-}
-
-// Sample grocery items, including brands and quantities
-final List<GroceryItem> groceryItems = [
-  GroceryItem(
-    name: "Anchor Milk Powder",
-    type: "milk powder",
-    brand: "Anchor",
-    price: 4.99,
-    quantity: 500,
-    unit:"g"
-  ),
-  GroceryItem(
-    name: "Anchor Milk Powder",
-    type: "milk powder",
-    brand: "Anchor",
-    price: 4.99,
-    quantity: 1,
-    unit:"kg"
-  ),
-  GroceryItem(
-    name: "Maliban Milk",
-    type: "milk",
-    brand: "Maliban",
-    price: 5.49,
-    quantity: 1.2,
-    unit:"l"
-  ),
-  GroceryItem(
-    name: "Maliban Milk",
-    type: "milk",
-    brand: "Maliban",
-    price: 5.49,
-    quantity: 2,
-     unit:"l"
-  ),
-  GroceryItem(
-    name: "fanta orange",
-    type: "soda",
-    brand: "fanta",
-    price: 5.49,
-    quantity: 2,
-     unit:"l"
-  ),
-  GroceryItem(
-    name: "fanta lime",
-    type: "soda",
-    brand: "fanta",
-    price: 5.49,
-    quantity: 1,
-     unit:"l"
-  ),
-  // Add more products as needed
-];
-
+import 'package:see_for_me/models/groceryItem.dart'; //importing class and mock data
+import 'package:see_for_me/ordering/searchFuncions.dart';
+import 'package:see_for_me/ordering/searchResponses.dart';
 
 class OrderingPage extends StatefulWidget {
   const OrderingPage({super.key});
@@ -95,318 +18,391 @@ class OrderingPage extends StatefulWidget {
   @override
   State<OrderingPage> createState() => _OrderingPageState();
 }
+
 class _OrderingPageState extends State<OrderingPage> {
   final FlutterTts flutterTts = FlutterTts();
   final SpeechToText _speechToText = SpeechToText();
 
-
-  final List<Map<String, String>> responses = [
-    {"productType": "Please say the type of product you want to search for."},
-
-    {"Quantity": "Please specify the quantity in liters or grams "},
-
-    {"brand": "Please say the brand you prefer."},
-
-    {"change": "Changing product"},
-
-    {"search":"searching product type"},
-
-    {"add": "To add this item to your cart, say 'Add item to cart'."},
-
-    {"help": '''these are the following help commands:
-    - Say commands for searching and adding an item".
-    - say commands for editiing the shopping cart".
-    - say commands for proceeding to checkout".
-    '''},
-
-    {"error": "Sorry, I didn't understand that."},
-  ];
-
   final List<String> productTypes = [
-  "milk powder",
-  "milk",
-  "flour",
-  "soda",
-  "rice"
-];
-
-Map<String, String> unitMap = {
-  "liters": "l",
-  "liter": "l",
-  "l": "l",
-  "litres": "l",
-  "litre": "l",
-  "kilograms": "kg",
-  "kg": "kg",
-  "kilogram": "kg",
-  "grams": "g",
-  "g": "g",
-  "milliliters": "ml",
-  "ml": "ml"
-  // Add more units as needed
-};
-
-  final List<String> brandList = [
-  "Maliban",
-  "Anchor",
-];
-
-
-
-
-
-  final List<Map<String,String>>  helpResponses = [
-
-    {"searching": '''Here are the steps you should follow:
-  - Start by saying "search" and then wait for the system to respond, or you can directly say the product type by saying "product type" followed by the type.
-  - Next, specify the quantity of the product you want by saying "quantity" followed by the amount and unit (e.g., 500 grams or 1 liter).
-  - Then, say the brand name you prefer by saying "brand" followed by the brand name.
-  - You can ask for a description of the item you just searched for by saying "describe the item."
-  - Finally, say "add to cart" to add the currently selected item to your cart.
-  '''}
-
+    "milk powder",
+    "milk",
+    "flour",
+    "soda",
+    "rice"
   ];
 
-String getResponse(String key) {
+  Map<String, String> unitMap = {
+    "liters": "l",
+    "liter": "l",
+    "l": "l",
+    "litres": "l",
+    "litre": "l",
+    "kilograms": "kg",
+    "kg": "kg",
+    "kilogram": "kg",
+    "grams": "g",
+    "g": "g",
+    "milliliters": "ml",
+    "ml": "ml"
+    // Add more units as needed
+  };
 
-    if(key.contains("searching")){
+  final brandList = [
+    {
+      "milk powder": ["Anchor", "Maliban", "Nestle"]
+    },
+    {
+      "biscuits": ["Oreo", "Marie", "Digestive"]
+    },
+    {
+      "soda": ["fanta", "sprite", "mounten dew"]
+    },
+    {
+      "milk": ["Anchor", "Maliban", "Nestle"]
+    }
+    // Add more categories and brands as needed
+  ];
+
+  final Map<String, String> misrecognizedWords = {
+    "melbourne": "Maliban",
+    "ankhor": "Anchor",
+  };
+
+  
+
+  final List<GroceryItem> searchedItems = [];
+  List<Item> items = List.empty(growable: true);
+
+  late SharedPreferences sp;
+
+  getSharedPreferences() async {
+    sp = await SharedPreferences.getInstance();
+  }
+
+  saveIntoSp(){
+    List<String> itemListString = items.map((item)=>jsonEncode(item.toJson())).toList();
+    sp.setStringList("myCart", itemListString);
+  }
+
+  /*readFromSp() {
+  List<String>? itemListString = sp.getStringList("myCart");
+
+  if (itemListString != null) {
+    items = itemListString.map((item) => Item.fromJson(json.decode(item))).toList();
+  } else {
+    // Initialize items as an empty list if null
+    items = [];
+  }
+}*/
+
+List<Item> readFromSp() {
+  List<String>? itemListString = sp.getStringList("myCart");
+
+  if (itemListString != null) {
+    return itemListString.map((item) => Item.fromJson(json.decode(item))).toList();
+  } else {
+    return [];
+  }
+}
+
+
+  String getResponse(String key) {
+    if (key.contains("searching")) {
       for (var response in helpResponses) {
-      if (response.containsKey(key)) {
-        return response[key]!;
+        if (response.containsKey(key)) {
+          return response[key]!;
+        }
+      }
+      return "Sorry, I didn't understand that.";
+    } else {
+      for (var response in responses) {
+        if (response.containsKey(key)) {
+          return response[key]!;
+        }
+      }
+      return "Sorry, I didn't understand that.";
+    }
+  }
+
+  int filterSearchItems() {
+    // Clear the previous search results
+    searchedItems.clear();
+
+    int matchedItemsCount = 0;
+
+    // Filter groceryItems based on the selected productType, quantity, and brand
+    for (var item in groceryItems) {
+      bool matchesType = productType.isEmpty ||
+          item.type.toLowerCase() == productType.toLowerCase();
+      bool matchesQuantity = quantity.isEmpty
+          ? true
+          : item.unit == quantityUnit &&
+              item.quantity == (double.tryParse(quantityValue) ?? 0.0);
+      bool matchesBrand =
+          brand.isEmpty || item.brand.toLowerCase() == brand.toLowerCase();
+
+      if (matchesType && matchesQuantity && matchesBrand) {
+        searchedItems.add(item);
+        matchedItemsCount++;
       }
     }
-    return "Sorry, I didn't understand that.";
-    }else {
-       for (var response in responses) {
-      if (response.containsKey(key)) {
-        return response[key]!;
+
+    return matchedItemsCount;
+  }
+
+  void processProductType(String spokenWords) {
+    // Normalize spoken words by converting to lowercase
+    String normalizedWords = spokenWords.toLowerCase();
+
+    quantity = "";
+    quantityValue = "";
+    quantityUnit = "";
+    bool productTypeFound = false;
+
+    // Check each product type for an exact match
+    for (String type in productTypes) {
+      if (normalizedWords.contains(type.toLowerCase())) {
+        productType = type;
+        productTypeFound = true;
+
+        if (previousType.isEmpty || previousType == productType) {
+          // If no previous type or the same product type is mentioned
+          noItems = filterSearchItems();
+          response ="$productType product type searched and number of items found was $noItems";
+        } else if (previousType != productType) {
+          // If a different product type is mentioned
+          noItems = filterSearchItems();
+          response ="Changed to $productType. Number of items found was $noItems";
+        }
+        previousType = productType;
+        break;
       }
     }
-    return "Sorry, I didn't understand that.";
+
+    if (!productTypeFound) {
+      response = "Sorry, this product type is not available.";
     }
-   
+
+    setState(() {});
   }
 
-  final List<GroceryItem> searchedItems = [
-];
+  void processQuantity(String spokenWords) {
+    
+    String normalizedWords = spokenWords.toLowerCase();
 
-int filterSearchItems() {
-  // Clear the previous search results
-  searchedItems.clear();
+    // Split the spoken words into individual words
+    List<String> words = normalizedWords.split(RegExp(r'\s+')); // Handle multiple spaces and punctuation
 
-  int matchedItemsCount = 0;
+    // Extract possible quantity and unit
+    String possibleQuantity = "";
+    String possibleUnit = "";
 
-  // Filter groceryItems based on the selected productType, quantity, and brand
-  for (var item in groceryItems) {
-    bool matchesType = productType.isEmpty || item.type.toLowerCase() == productType.toLowerCase();
-    bool matchesQuantity = quantity.isEmpty
-        ? true
-        : item.unit == quantityUnit && item.quantity == (double.tryParse(quantityValue) ?? 0.0);
-    bool matchesBrand = brand.isEmpty || item.brand.toLowerCase() == brand.toLowerCase();
-
-    if (matchesType && matchesQuantity && matchesBrand) {
-      searchedItems.add(item);
-      matchedItemsCount++;
-    }
-  }
-
-  return matchedItemsCount;
-}
-
-//String message = "";
-// Function to extract the product type from spoken words
-void processProductType(String spokenWords) {
-  // Normalize spoken words by converting to lowercase
-  String normalizedWords = spokenWords.toLowerCase();
-
-  quantity = "";
-  quantityValue = "";
-  quantityUnit = "";
-  bool productTypeFound = false;
-
-  // Check each product type for an exact match
-  for (String type in productTypes) {
-    if (normalizedWords.contains(type.toLowerCase())) {
-      productType = type;
-      productTypeFound = true;
-
-
-       if (previousType.isEmpty || previousType == productType) {
-        // If no previous type or the same product type is mentioned
-        noItems = filterSearchItems();
-        response = "$productType product type searched and number of items found was $noItems";
-      } else if (previousType != productType) {
-        // If a different product type is mentioned
-        noItems = filterSearchItems();
-        response = "Changed to $productType. Number of items found was $noItems";
-      }
-
-      previousType = productType;
-
-      print(previousType);
-      break;
-    }
-  }
-
-  if (!productTypeFound) {
-    response = "Sorry, this product type is not available.";
-  }
-
-  // Update the UI with the response
-  setState(() {
-    wordsSpoken = spokenWords;
-  });
-
-  // Speak the response to the user
-  speak(response);
-}
-
-void processQuantity(String spokenWords) {
-  // Normalize spoken words by converting to lowercase
-  String normalizedWords = spokenWords.toLowerCase();
-
-  // Split the spoken words into individual words
-  List<String> words = normalizedWords.split(RegExp(r'\s+')); // Handle multiple spaces and punctuation
-
-  // Extract possible quantity and unit
-  String possibleQuantity = "";
-  String possibleUnit = "";
-
-   if(productType.isEmpty){
+    if (productType.isEmpty) {
       response = "please specify the product type you want first";
+      return;
+    }
+
+    // Iterate through words to find quantity and unit
+    for (int i = 0; i < words.length; i++) {
+      if (double.tryParse(words[i]) != null) {
+        possibleQuantity = words[i];
+      } else if (unitMap.containsKey(words[i])) {
+        possibleUnit = unitMap[words[i]] ?? "";
+      }
+    }
+
+    // Check if both quantity and unit were found
+    if (possibleQuantity.isNotEmpty && possibleUnit.isNotEmpty) {
+      // Set the quantity value and unit
+      quantityValue = possibleQuantity;
+      quantityUnit = possibleUnit;
+      quantity = "$quantityValue $quantityUnit";
+
+      noItems = filterSearchItems();
+      if (noItems > 0) {
+        response = "Quantity $quantity is available and the number of items found was $noItems for $productType";
+      } else {
+        response ="quantity $quantity is not available for $productType";
+      }
+    } else {
+      // Handle missing quantity or unit
+      if (possibleQuantity.isEmpty) {
+        response = "Sorry, I couldn't find a quantity in your request.";
+      } else if (possibleUnit.isEmpty) {
+        response ="Sorry, I couldn't find a valid unit. Please specify a valid unit like liters, kilograms, etc.";
+      }
+    }
+
+    setState(() {});
+  }
+
+  void processBrand(String spokenWords) {
+    // Normalize spoken words by converting to lowercase
+    String normalizedWords = spokenWords.toLowerCase();
+    bool brandFound = false;
+
+    // Ensure product type is mentioned first
+    if (productType.isEmpty) {
+      response = "Please specify the product type first.";
       speak(response);
       return;
     }
 
-  // Iterate through words to find quantity and unit
-  for (int i = 0; i < words.length; i++) {
-    if (double.tryParse(words[i]) != null) {
-      possibleQuantity = words[i];
-    } else if (unitMap.containsKey(words[i])) {
-      possibleUnit = unitMap[words[i]] ?? "";
+    // Ensure quantity is mentioned
+    if (quantity.isEmpty) {
+      response = "Please specify the quantity first.";
+      speak(response);
+      return;
     }
-  }
 
-  // Check if both quantity and unit were found
-  if (possibleQuantity.isNotEmpty && possibleUnit.isNotEmpty) {
-    // Set the quantity value and unit
-    quantityValue = possibleQuantity;
-    quantityUnit = possibleUnit;
-    quantity = "$quantityValue $quantityUnit";
-
-   
-      noItems = filterSearchItems();
-    if(noItems > 0){
-      response = "quantity" + quantity + "is available" + " and number of items found was" + '$noItems for $productType' ;
-    }else{
-      response = "quantity" + quantity + "is not available for" + '$productType';
-    }
-    
-    // Update the state and speak the response
-    
-    setState(() {});
-    speak(response);
-  } else {
-    // Handle missing quantity or unit
-    if (possibleQuantity.isEmpty) {
-      response = "Sorry, I couldn't find a quantity in your request.";
-    } else if (possibleUnit.isEmpty) {
-      response = "Sorry, I couldn't find a valid unit. Please specify a valid unit like liters, kilograms, etc.";
-    }
-    setState(() {});
-    speak(response);
-  }
-}
-
-void processBrand(String spokenWords) {
-  // Normalize spoken words by converting to lowercase
-  String normalizedWords = spokenWords.toLowerCase();
-
-  bool brandFound = false;
-
-  // Check each brand for an exact match
-  for (String brandName in brandList) {
-    if (normalizedWords.contains(brandName.toLowerCase())) {
-      brand = brandName;
-      brandFound = true;
-
-      // Filter items based on the selected brand
-      noItems = filterSearchItems();
-      
-      // If no items are found
-      if (noItems == 0) {
-        response = "Sorry, no items found for the brand $brand in the selected product type.";
-      } else {
-        // If items exist, send a response indicating success
-        response = "$brand brand searched, and number of items found was $noItems.";
+    // Correct any misrecognized words using the misrecognizedWords map
+    misrecognizedWords.forEach((key, value) {
+      if (normalizedWords.contains(key.toLowerCase())) {
+        normalizedWords =
+            normalizedWords.replaceAll(key.toLowerCase(), value.toLowerCase());
       }
+    });
 
-      print("User mentioned brand: $brand");
-      break;
+    // Find the correct category (productType) and match the brand within it
+    if (brandList.any((category) => category.containsKey(productType.toLowerCase()))) {
+      // Extract the brands for the current product type
+      List<String>? brands = brandList.firstWhere((category) => category
+          .containsKey(productType.toLowerCase()))[productType.toLowerCase()];
+
+      if (brands != null) {
+        // Check each brand in the product type for a match
+        for (String brandName in brands) {
+          if (normalizedWords.contains(brandName.toLowerCase())) {
+            brand = brandName;
+            brandFound = true;
+
+            // Filter items based on the selected brand
+            noItems = filterSearchItems();
+
+            // Respond based on whether items were found or not
+            if (noItems == 0) {
+              response ="Sorry, no items found for the brand $brand in the selected product type.";
+            } else {
+              response ="$brand brand searched, and number of items found was $noItems.";
+            }
+            break;
+          }
+        }
+      }
+    } else {
+      response = "Sorry, the product type $productType is not available.";
     }
+
+    // If brand not found
+    if (!brandFound) {
+      searchedItems.clear();
+      response = "Sorry, this brand is not available.";
+    }
+
+    setState(() {});
+
   }
 
-  if (!brandFound) {
-    response = "Sorry, this brand is not available.";
+
+  void describeItemFunc() {
+    response = describeItem(searchedItems, productType, quantity, brand);
   }
 
-  // Update the UI with the response
-  setState(() {
-    wordsSpoken = spokenWords;
-  });
+void addToCart() {
+  // Check if there is only one item in the searchedItems list
+  if (searchedItems.length == 1) {
+    // If only one item is found, add it to the items list (cart)
+    GroceryItem searchedItem = searchedItems[0];
 
-  // Speak the response to the user
-  speak(response);
+    Item newItem = Item(
+      productId: searchedItem.productID,
+      name: searchedItem.name,
+    );
+
+    // Add the new item to the items list
+    items.add(newItem);
+    saveIntoSp();
+    // Optionally, print or provide a confirmation message
+    response = '${newItem.name} has been added to the cart.';
+    
+  } else {
+    // If more than one item is found, prompt the user to refine their search
+    response = "Please refine your search until only one item is left";
+  }
 }
 
-void clearSearch() {
-  // Clear the search-related variables
-  previousType = productType;
-  productType = "";
-  quantity = "";
-  quantityValue = "";
-  quantityUnit = "";
-  brand = "";
-  
-  // Clear any previously searched items
-  searchedItems.clear();
+void viewCart() {
+    List<Item> cartItems = readFromSp();
 
-  // Set the response for the cleared search
-  response = "Previous search cleared. Ready for a new search.";
+    // Display cart items in an alert dialog
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Items in Cart"),
+          content: cartItems.isEmpty
+              ? Text("Your cart is empty.")
+              : SizedBox(
+                  height: 200, // Adjust height as needed
+                  width: double.maxFinite,
+                  child: ListView.builder(
+                    itemCount: cartItems.length,
+                    itemBuilder: (context, index) {
+                      final item = cartItems[index];
+                      return ListTile(
+                        title: Text(item.name),
+                        subtitle: Text("Product ID: ${item.productId}"),
+                      );
+                    },
+                  ),
+                ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("Close"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
-  // Update the UI
-  setState(() {});
 
-  // Speak the response
-  speak(response);
-}
+  void clearSearch() {
+    // Clear the search-related variables
+    previousType = productType;
+    productType = "";
+    quantity = "";
+    quantityValue = "";
+    quantityUnit = "";
+    brand = "";
 
-void listProductTypes() {
-  // Create a response string with the product types
-  String productList = productTypes.join(", ");
-  
-  // Set the response with the available product types
-  response = "The available product types are: $productList.";
+    searchedItems.clear();
+    response = "Previous search cleared. Ready for a new search.";
 
-  // Update the UI
-  setState(() {});
+  }
 
-  // Speak the response
-  speak(response);
-}
+  void listProductTypes() {
+
+    String productList = productTypes.join(", ");
+    response = "The available product types are: $productList.";
+    speak(response);
+  }
+
+  void listBrandFunc(){
+    response = listBrands(productType,brandList);
+  }
 
 // Function to tell the user what product type was searched
-void productSearched() {
-  if (productType.isNotEmpty) {
-    response = "The previous product type you searched for was $previousType.";
-  } else {
-    response = "You haven't searched for any product type yet.";
+  void productSearched() {
+    if (productType.isNotEmpty) {
+      response ="The previous product type you searched for was $previousType.";
+    } else {
+      response ="You haven't searched for any product type yet.";
+    }
   }
-
-  setState(() {});
-  speak(response);
-}
-
 
   bool _speechEnabled = false;
   String wordsSpoken = "";
@@ -414,15 +410,14 @@ void productSearched() {
   String productType = "";
   String quantity = "";
   String brand = "";
-  String currentStep = "search";  // Track the current step
-  //GroceryItem? selectedItem;
-String quantityValue = "";  // Numeric part of quantity
-String quantityUnit = "";  // Unit part of quantity
-int noItems = 0;
-String previousType = "";
+  String quantityValue = ""; // Numeric part of quantity
+  String quantityUnit = ""; // Unit part of quantity
+  int noItems = 0;
+  String previousType = "";
 
   @override
   void initState() {
+    getSharedPreferences();
     super.initState();
     _initSpeech();
   }
@@ -442,47 +437,48 @@ String previousType = "";
     setState(() {});
   }
 
-    // Function to process recognized voice commands
+  // Function to process recognized voice commands
   void processCommand(SpeechRecognitionResult result) {
     String spokenWords = result.recognizedWords.toLowerCase();
 
     // Handle "repeat" command
-  if (spokenWords.contains("repeat")) {
-    if (response.isNotEmpty) {
-      speak(response);  // Repeat the last response
-    } else {
-      response = getResponse("error");
-      speak(response);
+    if (spokenWords.contains("repeat")) {
+      if (response.isNotEmpty) {
+        speak(response); // Repeat the last response
+      } else {
+        response = getResponse("error");
+        speak(response);
+      }
+      setState(() {
+        wordsSpoken = spokenWords;
+      });
+      return;
     }
-    setState(() {
-      wordsSpoken = spokenWords;
-    });
-    return;
-  }
 
-  if (spokenWords.contains("clear search")) {
-    clearSearch();
-    setState(() {
-      wordsSpoken = spokenWords;
-    });
-    return;
-  }
+    if (spokenWords.contains("clear search")) {
+      clearSearch();
+      setState(() {
+        wordsSpoken = spokenWords;
+      });
+      speak(response);
+      return;
+    }
 
-  if (spokenWords.contains("product types")) {
-    listProductTypes();
-    setState(() {
-      wordsSpoken = spokenWords;
-    });
-    return;
-  }
+    if (spokenWords.contains("product types")) {
+      listProductTypes();
+      setState(() {
+        wordsSpoken = spokenWords;
+      });
+      return;
+    }
 
-  if (spokenWords.contains("product type searched")) {
-    productSearched();
-    setState(() {
-      wordsSpoken = spokenWords;
-    });
-    return;
-  }
+    if (spokenWords.contains("product type searched")) {
+      productSearched();
+      setState(() {
+        wordsSpoken = spokenWords;
+      });
+      return;
+    }
 
     // Check for "help" command first
     if (spokenWords.contains("help")) {
@@ -492,33 +488,35 @@ String previousType = "";
       });
       speak(response);
       return;
-    }else if(spokenWords.contains("searching")){
+    } else if (spokenWords.contains("searching")) {
       response = getResponse("searching");
       setState(() {
         wordsSpoken = spokenWords;
       });
       speak(response);
       return;
-    }else if (spokenWords.contains("product type")) {
-    processProductType(spokenWords);
-    }else if (spokenWords.contains("quantity")) {
-    processQuantity(spokenWords);
-    }else if(spokenWords.contains("brand")){
-    processBrand(spokenWords);
-    } else {
-    // If none of the keywords match, set response to prompt the user again
-    response = getResponse("error");
-  }
+    } else if (spokenWords.contains("product type")) {
+      processProductType(spokenWords);
+    } else if (spokenWords.contains("quantity")) {
+      processQuantity(spokenWords);
+    } else if (spokenWords.contains("brands")) {
+      listBrandFunc();
+    } else if (spokenWords.contains("brand")) {
+      processBrand(spokenWords);
+    } else if (spokenWords.contains("describe item")) {
+      describeItemFunc();
+    } else if (spokenWords.contains("add item to cart")) {
+      addToCart();
+    }  else {
+      // If none of the keywords match, set response to prompt the user again
+      response = getResponse("error");
+    }
 
     setState(() {
       wordsSpoken = spokenWords;
     });
 
     speak(response);
-  }
-
-   void addToCart() {
-    log("Adding to cart: $productType, $quantity, $brand");
   }
 
  
@@ -544,9 +542,12 @@ String previousType = "";
     await flutterTts.speak(text);
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text("Online order page"),
+      ),
       backgroundColor: Colors.white,
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -572,6 +573,13 @@ String previousType = "";
             ),
           ),
 
+          // Button to view cart
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: viewCart,
+            child: Text("View Cart"),
+          ),
+
           // Show filtered items in a list
           const SizedBox(height: 40),
           Expanded(
@@ -582,7 +590,8 @@ String previousType = "";
                     itemBuilder: (context, index) {
                       GroceryItem item = searchedItems[index];
                       return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 20),
                         child: ListTile(
                           title: Text(item.name),
                           subtitle: Text(
