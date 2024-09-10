@@ -1,7 +1,7 @@
 class Tile {
   final int x;
   final int y;
-  final String type;
+  String type;
 
   Tile({required this.x, required this.y, required this.type});
 

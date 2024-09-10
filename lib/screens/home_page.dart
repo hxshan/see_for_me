@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:see_for_me/data/store_map.dart';
 import 'package:see_for_me/data/tile.dart';
+import 'package:see_for_me/screens/map_test.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:http/http.dart' as http;
@@ -130,6 +131,16 @@ class _HomePageState extends State<HomePage> {
                     ? _stopListening
                     : _startListening,
               ),
+            ),
+            SizedBox(height: 20), // Add some spacing
+            ElevatedButton(
+              child: Text('Go to Pathfinding Screen'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => MapTest()),
+                );
+              },
             ),
           ],
         ),
