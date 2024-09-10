@@ -1,9 +1,14 @@
 import 'package:see_for_me/data/tile.dart';
 
 class Node {
-  final Tile tile;
-  int g, h, f;
+  final Tile? tile;
+  double g = 0, h = 0;
   Node? parent;
 
-  Node(this.tile, {this.g = 0, this.h = 0, this.f = 0, this.parent});
+  Node(this.tile);
+
+  double get f => g + h;
+
+  @override
+  String toString() => '(${tile?.x}, ${tile?.y})';
 }

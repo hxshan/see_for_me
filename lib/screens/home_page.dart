@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:see_for_me/data/node.dart';
 import 'package:see_for_me/data/store_map.dart';
 import 'package:see_for_me/data/tile.dart';
 import 'package:see_for_me/screens/map_test.dart';
+import 'package:see_for_me/services/pathfinding.dart';
+import 'package:see_for_me/services/pathnarration.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:http/http.dart' as http;
@@ -20,6 +23,7 @@ class _HomePageState extends State<HomePage> {
   final FlutterTts flutterTts = FlutterTts();
   final SpeechToText _speechToText = SpeechToText();
   List<List<Tile?>> _mapGrid = [];
+  List<Node> path = [];
 
   bool _speechEnabled = false;
   String wordsSpoken = "";
@@ -53,24 +57,45 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
+  void findPath() {
+    //_mapGrid[0][0]?.type = "Start";
+    //_mapGrid[4][5]?.type = "End";
+
+    path = findPathWithAStar(_mapGrid, _mapGrid[0][0], _mapGrid[4][5]);
+    print(path);
+    //var prev = null;
+  }
+
   void processCommand(result) {
     String response = "";
-    // if (result.toString().toLowerCase().contains('hello')) {
-    //   response = maze[4][5].walkable.toString();
-    // } else {
-    //   response = "${result.recognizedWords}";
-    // }
+    //print(result.toString());
+    if (result.toString().toLowerCase().contains('find')) {
+      findPath();
+      response = path.toString();
+      //narrateList();
+      narratePath(path);
+    } else {
+      speak("Sorry, I didn't quite get that.");
+    }
     setState(() {
-      //wordsSpoken = response;
       wordsSpoken = "${result.recognizedWords}";
     });
   }
 
-  void _onSpeechResult(result) {
-    processCommand(result);
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    if (result.finalResult) {
+      processCommand(result);
+    }
   }
 
-  speak(String text) async {
+  Future<void> narrateList() async {
+    for (Node tile in path) {
+      await speak("move ${tile.tile?.x} forward");
+      await flutterTts.awaitSpeakCompletion(true);
+    }
+  }
+
+  Future<void> speak(String text) async {
     await flutterTts.setLanguage("en-US");
     await flutterTts.setPitch(1);
     await flutterTts.speak(text);
@@ -93,7 +118,7 @@ class _HomePageState extends State<HomePage> {
       for (Tile tile in storeMap.tiles) {
         grid[tile.x][tile.y] = tile;
       }
-
+      print(grid);
       return grid;
     } catch (e) {
       return [];

@@ -1,7 +1,9 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:see_for_me/data/node.dart';
 import 'package:see_for_me/data/tile.dart';
 import 'package:see_for_me/services/pathfinding.dart';
+import 'package:see_for_me/services/pathnarration.dart';
 
 class MapTest extends StatefulWidget {
   const MapTest({super.key});
@@ -14,7 +16,7 @@ class _MapTestState extends State<MapTest> {
   late List<List<Tile>> grid;
   Tile? startTile;
   Tile? endTile;
-  List<Tile> path = [];
+  List<Node> path = [];
   final int gridSize = 10;
   final double obstacleProbability = 0.1;
 
@@ -51,39 +53,9 @@ class _MapTestState extends State<MapTest> {
     setState(() {});
   }
 
-  void toggleTile(Tile tile) {
-    setState(() {
-      if (tile.type == "Empty") {
-        if (startTile == null) {
-          tile.type = "Start";
-          startTile = tile;
-        } else if (endTile == null) {
-          tile.type = "End";
-          endTile = tile;
-        } else {
-          tile.type = "wall";
-        }
-      } else if (tile.type == "Shelf") {
-        tile.type = "Empty";
-      } else if (tile.type == "Wall") {
-        tile.type = "Empty";
-        startTile = null;
-      }
-    });
-  }
-
-  void _findPath() {
-    if (startTile == null || endTile == null) return;
-
-    setState(() {
-      path = findPath(grid, startTile!, endTile!);
-      print(path);
-      for (var tile in path) {
-        if (tile != startTile && tile != endTile) {
-          tile.type = "Path";
-        }
-      }
-    });
+  void findPath() {
+    List<Node> path = findPathWithAStar(grid, startTile, endTile);
+    narratePath(path);
   }
 
   @override
@@ -105,7 +77,6 @@ class _MapTestState extends State<MapTest> {
                 int y = index % 10;
                 Tile tile = grid[x][y];
                 return GestureDetector(
-                  onTap: () => toggleTile(tile),
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.black),
@@ -117,7 +88,7 @@ class _MapTestState extends State<MapTest> {
             ),
           ),
           ElevatedButton(
-            onPressed: _findPath,
+            onPressed: findPath,
             child: Text('Find Path'),
           ),
           ElevatedButton(

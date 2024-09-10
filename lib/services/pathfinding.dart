@@ -1,61 +1,110 @@
+import 'dart:math';
+
+import 'package:flutter/material.dart';
 import 'package:see_for_me/data/node.dart';
 import 'package:see_for_me/data/tile.dart';
 import 'package:collection/collection.dart';
 
-List<Tile> findPath(List<List<Tile>> grid, Tile start, Tile end) {
-  // Check if start and end are valid and walkable
-  if (start.type.toLowerCase() != "start" || end.type.toLowerCase() != "end") {
+List<List<Node>> _convertTileGrid(List<List<Tile?>> grid) {
+  if (grid == null) {
+    return [[]];
+  }
+
+  return List.generate(grid.length, (x) {
+    return List.generate(grid[x].length, (y) {
+      return Node(grid[x][y]);
+    });
+  });
+}
+
+List<Node> findPathWithAStar(
+    List<List<Tile?>> gridArray, Tile? startTile, Tile? goalTile) {
+  List<List<Node>> grid = _convertTileGrid(gridArray);
+
+  if (startTile == null || goalTile == null) {
     return [];
   }
 
-  PriorityQueue<Node> openSet =
-      PriorityQueue<Node>((a, b) => a.f.compareTo(b.f));
+  Node start = grid[startTile.x][startTile.y];
+  Node goal = grid[goalTile.x][goalTile.y];
 
-  Set<Node> closedSet = {};
+  List<Node> openList = [];
+  List<Node> closedList = [];
+  openList.add(start);
 
-  openSet.add(Node(start));
+  while (openList.isNotEmpty) {
+    // Sort open list by the f-cost (lowest f-cost)
+    openList.sort((a, b) => a.f.compareTo(b.f));
+    Node current = openList.removeAt(0);
+    closedList.add(current);
 
-  while (openSet.isNotEmpty) {
-    Node current = openSet.removeFirst();
-
-    if (current.tile == end) {
-      // Reconstruct the path
-      List<Tile> path = [];
-      Node? node = current;
-      while (node != null) {
-        path.insert(0, node.tile);
-        node = node.parent;
-      }
-      return path;
+    // If we reached the goal
+    if (current == goal) {
+      return _retracePath(current);
     }
 
-    closedSet.add(current);
-    //print('Exploring node at (${current.tile.x}, ${current.tile.y})');
-    for (int dx in [-1, 0, 1]) {
-      for (int dy in [-1, 0, 1]) {
-        if (dx == 0 && dy == 0) continue;
-        int x = current.tile.x + dx;
-        int y = current.tile.y + dy;
+    for (var neighbor in _getNeighbors(grid, current)) {
+      if (neighbor?.tile?.type == "Wall" || closedList.contains(neighbor)) {
+        continue;
+      }
 
-        if (x >= 0 && x < grid.length && y >= 0 && y < grid[0].length) {
-          Tile neighbor = grid[x][y];
-          if (neighbor.type.toLowerCase() == "empty" &&
-              !closedSet.any((node) => node.tile == neighbor)) {
-            Node neighborNode = Node(
-              neighbor,
-              g: current.g + 1,
-              h: (neighbor.x - end.x).abs() + (neighbor.y - end.y).abs(),
-              parent: current,
-            );
-            if (!closedSet.contains(neighborNode) &&
-                !openSet.contains(neighborNode)) {
-              openSet.add(neighborNode);
-            }
-          }
+      double newGCost = current.g + _distance(current, neighbor);
+      if (newGCost < neighbor.g || !openList.contains(neighbor)) {
+        neighbor.g = newGCost;
+        neighbor.h = _distance(neighbor, goal);
+        neighbor.parent = current;
+
+        if (!openList.contains(neighbor)) {
+          openList.add(neighbor);
         }
       }
     }
   }
 
-  return [];
+  return []; // No path found
+}
+
+List<Node> _getNeighbors(List<List<Node>> grid, Node node) {
+  List<Node> neighbors = [];
+  int width = grid.length;
+  int height = grid[0].length;
+
+  int x = node.tile!.x;
+  int y = node.tile!.y;
+
+  // Only check up, down, left, and right (no diagonals)
+  if (x > 0) {
+    neighbors.add(grid[x - 1][y]); // Left
+  }
+  if (x < width - 1) {
+    neighbors.add(grid[x + 1][y]); // Right
+  }
+  if (y > 0) {
+    neighbors.add(grid[x][y - 1]); // Up
+  }
+  if (y < height - 1) {
+    neighbors.add(grid[x][y + 1]); // Down
+  }
+
+  return neighbors;
+}
+
+List<Node> _retracePath(Node node) {
+  List<Node> path = [];
+  Node? current = node;
+
+  while (current != null) {
+    path.add(current);
+    current = current.parent;
+  }
+
+  return path.reversed.toList();
+}
+
+double _distance(Node a, Node b) {
+  int dx = (a.tile!.x - b.tile!.x).abs();
+  int dy = (a.tile!.y - b.tile!.y).abs();
+
+  // Manhattan distance (no diagonal movement)
+  return (dx + dy).toDouble();
 }
