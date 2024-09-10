@@ -6,7 +6,8 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 
 
 import 'shoppingList.dart';
-import 'package:see_for_me/screens/shoppingListPage.dart';
+//import 'package:see_for_me/screens/shoppingListPage.dart';
+//import 'shoppingListTest.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,8 +23,11 @@ class _HomePageState extends State<HomePage> {
   bool _speechEnabled = false;
   String wordsSpoken = "";
 
-  final ShoppingList _shoppingList = ShoppingList();
-  bool _creatingNewList = false;
+  final Shoppinglist shoppingList = Shoppinglist();
+  bool createNewListState = false;
+  bool addQuantityState = false;
+
+  String tempItem = "";
 
   @override
   void initState() {
@@ -62,87 +66,106 @@ class _HomePageState extends State<HomePage> {
     result = result.recognizedWords.toLowerCase();
     if (result == 'create new list') {
       _startNewList();
-    } else if (_creatingNewList) {
+    } else if (addQuantityState) {
+      addItemToList(result);
+    }else if (createNewListState) {
       if (result == 'finish list') {
         _finishNewList();
       } else {
-        _addItemToList(result);
+        setQuantity(result);
       }
     } else if (result == "read list"){
       _readList();
     } else if (result == 'read next item') {
-      _readNextItem();
+      //_readNextItem();
     } else if(result == "delete list") {
       _deleteList();
     }else {
       speak("Command not found");
     }
-
-    
-
     
   }
 
   void _startNewList() {
     speak("Starting a new list. Please say items to add. Say 'finish list' when done.");
     setState(() {
-      _creatingNewList = true;
-      // _shoppingList.clearList();
+      createNewListState = true;
+      addQuantityState = false;
+      // shoppingList.clearList();
     });
     
   }
 
-  void _addItemToList(String item) {
-    _shoppingList.addItem(item);
-    speak("Added $item to the list.");
+  void setQuantity(String result) {
+    setState(() {
+      addQuantityState = true;
+      tempItem = result;
+    });
+    speak("How many $tempItem");
+  }
+
+  void addItemToList(String qtyString) {
+    int? quantity = int.tryParse(qtyString);
+    if (quantity != null) {
+      shoppingList.addItem(tempItem, quantity);
+      speak("Added $quantity ${quantity == 1 ? 'unit' : 'units'} of $tempItem to the list.");
+      setState(() {
+        tempItem = "";
+        addQuantityState = false;
+      });
+    } else {
+      speak("Sorry, I didn't understand that quantity. Please try again.");
+    }
   }
 
   void _finishNewList() {
-    speak("List creation finished. Your list has ${_shoppingList.items.length} items.");
+    speak("List creation finished. Your list has ${shoppingList.itemList.length} items.");
     setState(() {
-      _creatingNewList = false;
+      createNewListState = false;
+      addQuantityState = false;
     });  
   }
 
+
   Future<void> _readList() async {
-     if (_shoppingList.items.isEmpty) {
+    if (shoppingList.itemList.isEmpty) {
       await speak("Your shopping list is empty.");
       return;
     }
 
     await speak("Here are all the items in your shopping list:");
 
-    for (int i = 0; i < _shoppingList.items.length; i++) {
-      String item = _shoppingList.items[i];
-      await speak("Item ${i + 1}: $item");
-      
-      await Future.delayed(Duration(milliseconds: 1500));
+    for (var entry in shoppingList.itemList.entries) {
+      String item = entry.key;
+      int quantity = entry.value;
+      await speak("$quantity ${quantity == 1 ? 'unit' : 'units'} of $item");
+      await Future.delayed(Duration(milliseconds: 2000));
     }
 
     await speak("That's all the items in your list.");
   }
-
+/*
   Future<void> _readNextItem() async {
-    String? nextItem = _shoppingList.getNextUnreadItem();
+    String? nextItem = shoppingList.getNextUnreadItem();
     if (nextItem != null) {
       print("Item =");
       print(nextItem);
       await speak("Next item: $nextItem.");
-      _shoppingList.markItemAsRead(nextItem);
+      shoppingList.markItemAsRead(nextItem);
     } else {
       await speak("You've found all items on your list!");
-      _shoppingList.resetReadItems();
+      shoppingList.resetReadItems();
     }
   }
-
+*/
   Future<void> _deleteList() async {
-    if (_shoppingList.items.isEmpty) {
+    if (shoppingList.itemList.isEmpty) {
       await speak("Your shopping list is already empty.");
       return;
     }
 
-    int itemCount = _shoppingList.items.length;
-    _shoppingList.clearList();
+    int itemCount = shoppingList.itemList.length;
+    shoppingList.clearList();
 
     setState(() {
     });
@@ -195,7 +218,7 @@ class _HomePageState extends State<HomePage> {
                     : _startListening,
               ),
             ),
-
+/*
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
@@ -208,14 +231,14 @@ class _HomePageState extends State<HomePage> {
             ),
             const SizedBox(height: 20),
             Text(
-              _creatingNewList ? "Creating new list..." : "Not creating list",
+              createNewListState ? "Creating new list..." : "Not creating list",
               style: TextStyle(fontSize: 18),
             ),
             const SizedBox(height: 40),
-            ElevatedButton(
+            /*ElevatedButton(
               onPressed: _readNextItem, 
               child: const Text("Read the item list")
-            )
+            )*/*/
           ],
         ),
       ),

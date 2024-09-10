@@ -46,31 +46,31 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-class ShoppingList {
-  List<String> _items = [];
-  Set<String> _readItems = {};
+class Shoppinglist {
+  Map<String, int> itemList = {};
+  
+  Set<String> readItems = {};
 
-  List<String> get items => _items;
+  Map<String, int> get items => itemList;
 
-  void addItem(String item) {
-    _items.add(item);
-    _saveList();
+  void addItem(String item, int qty) {
+    itemList[item] = qty;
+    saveList();
   }
 
   void removeItem(String item) {
-    _items.remove(item);
-    _readItems.remove(item);
-    _saveList();
+    itemList.remove(item);
+    saveList();
   }
 
   String readList() {
-    if (_items.isEmpty) {
+    if (itemList.isEmpty) {
       return 'Your shopping list is empty';
     } else {
-      return 'Your shopping list contains: ${_items.join(', ')}';
+      return 'Your shopping list contains: ' + itemList.entries.map((e) => '${e.value} ${e.key}').join(', ');;
     }
   }
-
+/*
   String? getNextUnreadItem() {
     for (var item in _items) {
       if (!_readItems.contains(item)) {
@@ -87,22 +87,24 @@ class ShoppingList {
   void resetReadItems() {
     _readItems.clear();
   }
-
+*/
   void clearList() {
-    items.clear();
+    itemList.clear();
+    saveList();
   }
 
-  Future<void> _saveList() async {
+  Future<void> saveList() async {
     final prefs = await SharedPreferences.getInstance();
-    final String encodedList = json.encode(_items);
+    final String encodedList = json.encode(itemList);
     await prefs.setString('shopping_list', encodedList);
   }
 
-  Future<void> loadList() async {  // Changed from _loadList to loadList
+  Future<void> loadList() async { 
     final prefs = await SharedPreferences.getInstance();
     final String? encodedList = prefs.getString('shopping_list');
     if (encodedList != null) {
-      _items = List<String>.from(json.decode(encodedList));
+      final decodedList = json.decode(encodedList);
+      itemList = Map<String, int>.from(decodedList);
     }
   }
 
