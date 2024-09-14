@@ -30,9 +30,9 @@ class _MapTestState extends State<MapTest> {
     final random = Random();
     grid = List.generate(
       gridSize,
-      (x) => List.generate(
+      (y) => List.generate(
         gridSize,
-        (y) => Tile(
+        (x) => Tile(
             x: x,
             y: y,
             type: random.nextDouble() < obstacleProbability ? "Wall" : "Empty"),
@@ -55,7 +55,8 @@ class _MapTestState extends State<MapTest> {
 
   void findPath() {
     List<Node> path = findPathWithAStar(grid, startTile, endTile);
-    narratePath(path);
+    print(path);
+    // narratePath(path);
   }
 
   @override

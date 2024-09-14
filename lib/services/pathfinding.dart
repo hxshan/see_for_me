@@ -10,9 +10,9 @@ List<List<Node>> _convertTileGrid(List<List<Tile?>> grid) {
     return [[]];
   }
 
-  return List.generate(grid.length, (x) {
-    return List.generate(grid[x].length, (y) {
-      return Node(grid[x][y]);
+  return List.generate(grid.length, (y) {
+    return List.generate(grid[y].length, (x) {
+      return Node(grid[y][x]);
     });
   });
 }
@@ -25,8 +25,8 @@ List<Node> findPathWithAStar(
     return [];
   }
 
-  Node start = grid[startTile.x][startTile.y];
-  Node goal = grid[goalTile.x][goalTile.y];
+  Node start = grid[startTile.y][startTile.x];
+  Node goal = grid[goalTile.y][goalTile.x];
 
   List<Node> openList = [];
   List<Node> closedList = [];
@@ -73,17 +73,17 @@ List<Node> _getNeighbors(List<List<Node>> grid, Node node) {
   int y = node.tile!.y;
 
   // Only check up, down, left, and right (no diagonals)
-  if (x > 0) {
-    neighbors.add(grid[x - 1][y]); // Left
-  }
-  if (x < width - 1) {
-    neighbors.add(grid[x + 1][y]); // Right
-  }
   if (y > 0) {
-    neighbors.add(grid[x][y - 1]); // Up
+    neighbors.add(grid[y - 1][x]); // Left
   }
-  if (y < height - 1) {
-    neighbors.add(grid[x][y + 1]); // Down
+  if (y < width - 1) {
+    neighbors.add(grid[y + 1][x]); // Right
+  }
+  if (x > 0) {
+    neighbors.add(grid[y][x - 1]); // Up
+  }
+  if (x < height - 1) {
+    neighbors.add(grid[y][x + 1]); // Down
   }
 
   return neighbors;
