@@ -4,6 +4,11 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
+
+import 'shoppingList.dart';
+//import 'package:see_for_me/screens/shoppingListPage.dart';
+//import 'shoppingListTest.dart';
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -18,6 +23,12 @@ class _HomePageState extends State<HomePage> {
   bool _speechEnabled = false;
   String wordsSpoken = "";
   String response = "";
+
+  final Shoppinglist shoppingList = Shoppinglist();
+  bool createNewListState = false;
+  bool addQuantityState = false;
+
+  String tempItem = "";
 
   @override
   void initState() {
@@ -47,6 +58,7 @@ class _HomePageState extends State<HomePage> {
     // } else {
     //   response = "${result.recognizedWords}";
     // }
+
    // setState(() {
       //wordsSpoken = response;
    //   wordsSpoken = "${result.recognizedWords}";
@@ -70,7 +82,117 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       wordsSpoken = spokenWords;
     });
+
+    result = result.recognizedWords.toLowerCase();
+    if (result == 'create new list') {
+      _startNewList();
+    } else if (addQuantityState) {
+      addItemToList(result);
+    }else if (createNewListState) {
+      if (result == 'finish list') {
+        _finishNewList();
+      } else {
+        setQuantity(result);
+      }
+    } else if (result == "read list"){
+      _readList();
+    } else if (result == 'read next item') {
+      //_readNextItem();
+    } else if(result == "delete list") {
+      _deleteList();
+    }else {
+      speak("Command not found");
+    }
+    
   }
+
+  void _startNewList() {
+    speak("Starting a new list. Please say items to add. Say 'finish list' when done.");
+    setState(() {
+      createNewListState = true;
+      addQuantityState = false;
+      // shoppingList.clearList();
+    });
+    
+  }
+
+  void setQuantity(String result) {
+    setState(() {
+      addQuantityState = true;
+      tempItem = result;
+    });
+    speak("How many $tempItem");
+  }
+
+  void addItemToList(String qtyString) {
+    int? quantity = int.tryParse(qtyString);
+    if (quantity != null) {
+      shoppingList.addItem(tempItem, quantity);
+      speak("Added $quantity ${quantity == 1 ? 'unit' : 'units'} of $tempItem to the list.");
+      setState(() {
+        tempItem = "";
+        addQuantityState = false;
+      });
+    } else {
+      speak("Sorry, I didn't understand that quantity. Please try again.");
+    }
+  }
+
+  void _finishNewList() {
+    speak("List creation finished. Your list has ${shoppingList.itemList.length} items.");
+    setState(() {
+      createNewListState = false;
+      addQuantityState = false;
+    });  
+  }
+
+
+  Future<void> _readList() async {
+    if (shoppingList.itemList.isEmpty) {
+      await speak("Your shopping list is empty.");
+      return;
+    }
+
+    await speak("Here are all the items in your shopping list:");
+
+    for (var entry in shoppingList.itemList.entries) {
+      String item = entry.key;
+      int quantity = entry.value;
+      await speak("$quantity ${quantity == 1 ? 'unit' : 'units'} of $item");
+      await Future.delayed(Duration(milliseconds: 2000));
+    }
+
+    await speak("That's all the items in your list.");
+  }
+/*
+  Future<void> _readNextItem() async {
+    String? nextItem = shoppingList.getNextUnreadItem();
+    if (nextItem != null) {
+      print("Item =");
+      print(nextItem);
+      await speak("Next item: $nextItem.");
+      shoppingList.markItemAsRead(nextItem);
+    } else {
+      await speak("You've found all items on your list!");
+      shoppingList.resetReadItems();
+    }
+  }
+*/
+  Future<void> _deleteList() async {
+    if (shoppingList.itemList.isEmpty) {
+      await speak("Your shopping list is already empty.");
+      return;
+    }
+
+    int itemCount = shoppingList.itemList.length;
+    shoppingList.clearList();
+
+    setState(() {
+    });
+
+    await speak("All $itemCount items have been deleted from your shopping list.");
+  }
+
 
 
    void _onSpeechResult(SpeechRecognitionResult result) {
@@ -121,6 +243,27 @@ class _HomePageState extends State<HomePage> {
                     : _startListening,
               ),
             ),
+/*
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ShoppingListPage()),
+                );
+              },
+              child: Text('Open Shopping List'),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              createNewListState ? "Creating new list..." : "Not creating list",
+              style: TextStyle(fontSize: 18),
+            ),
+            const SizedBox(height: 40),
+            /*ElevatedButton(
+              onPressed: _readNextItem, 
+              child: const Text("Read the item list")
+            )*/*/
           ],
         ),
       ),
