@@ -1,6 +1,14 @@
-class Node {
-  final bool isWalkable;
-  final int dimention;
+import 'package:see_for_me/data/tile.dart';
 
-  Node(this.isWalkable, this.dimention);
+class Node {
+  final Tile tile;
+  double g = 0, h = 0;
+  Node? parent;
+
+  Node(this.tile);
+
+  double get f => g + h;
+
+  @override
+  String toString() => '(${tile?.x}, ${tile?.y})';
 }

@@ -37,6 +37,12 @@ dependencies:
   cupertino_icons: ^1.0.6
   speech_to_text: ^7.0.0
   flutter_tts: ^4.0.2
+
+  http: ^1.2.2
+  sensors_plus: ^6.0.1
+  pedometer: ^4.0.2
+  geolocator: ^13.0.1
+
   shared_preferences: ^2.3.2
 
 dev_dependencies:
