@@ -4,7 +4,7 @@ class GroceryItem {
   final String type;
   final String brand;
   final double price;
-  final double quantity;
+  final double weight;
   final String unit;
 
   GroceryItem({
@@ -13,7 +13,7 @@ class GroceryItem {
     required this.type,
     required this.brand,
     required this.price,
-    required this.quantity,
+    required this.weight,
     required this.unit
   });
 
@@ -24,7 +24,7 @@ class GroceryItem {
     Brand: $brand
     Type: $type
     Price: \$${price.toStringAsFixed(2)}
-    Quantity: ${quantity.toStringAsFixed(2)} $unit
+    Quantity: ${weight.toStringAsFixed(2)} $unit
     ''';
   }
 }
@@ -36,7 +36,7 @@ final List<GroceryItem> groceryItems = [
     type: "milk powder",
     brand: "Anchor",
     price: 4.99,
-    quantity: 500,
+    weight: 500,
     unit:"g"
   ),
   GroceryItem(
@@ -45,7 +45,7 @@ final List<GroceryItem> groceryItems = [
     type: "milk powder",
     brand: "Anchor",
     price: 4.99,
-    quantity: 1,
+    weight: 1,
     unit:"kg"
   ),
   GroceryItem(
@@ -54,7 +54,7 @@ final List<GroceryItem> groceryItems = [
     type: "milk powder",
     brand: "Maliban",
     price: 5.49,
-    quantity: 1,
+    weight: 1,
     unit:"kg"
   ),
   GroceryItem(
@@ -63,7 +63,7 @@ final List<GroceryItem> groceryItems = [
     type: "milk",
     brand: "Maliban",
     price: 5.49,
-    quantity: 1.2,
+    weight: 1.2,
     unit:"l"
   ),
    GroceryItem(
@@ -72,7 +72,7 @@ final List<GroceryItem> groceryItems = [
     type: "milk",
     brand: "Anchor",
     price: 5.49,
-    quantity: 1.2,
+    weight: 1.2,
     unit:"l"
   ),
   GroceryItem(
@@ -81,7 +81,7 @@ final List<GroceryItem> groceryItems = [
     type: "milk",
     brand: "Maliban",
     price: 5.49,
-    quantity: 2,
+    weight: 2,
      unit:"l"
   ),
   GroceryItem(
@@ -90,7 +90,7 @@ final List<GroceryItem> groceryItems = [
     type: "soda",
     brand: "fanta",
     price: 5.49,
-    quantity: 2,
+    weight: 2,
      unit:"l"
   ),
   GroceryItem(
@@ -99,7 +99,7 @@ final List<GroceryItem> groceryItems = [
     type: "soda",
     brand: "fanta",
     price: 5.49,
-    quantity: 1,
+    weight: 1,
      unit:"l"
   ),
   // Add more products as needed

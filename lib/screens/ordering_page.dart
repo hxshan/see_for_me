@@ -134,14 +134,14 @@ List<Item> readFromSp() {
     for (var item in groceryItems) {
       bool matchesType = productType.isEmpty ||
           item.type.toLowerCase() == productType.toLowerCase();
-      bool matchesQuantity = quantity.isEmpty
+      bool matchesWeight = weight.isEmpty
           ? true
-          : item.unit == quantityUnit &&
-              item.quantity == (double.tryParse(quantityValue) ?? 0.0);
+          : item.unit == weightUnit &&
+              item.weight == (double.tryParse(weightValue) ?? 0.0);
       bool matchesBrand =
           brand.isEmpty || item.brand.toLowerCase() == brand.toLowerCase();
 
-      if (matchesType && matchesQuantity && matchesBrand) {
+      if (matchesType && matchesWeight && matchesBrand) {
         searchedItems.add(item);
         matchedItemsCount++;
       }
@@ -154,9 +154,9 @@ List<Item> readFromSp() {
     // Normalize spoken words by converting to lowercase
     String normalizedWords = spokenWords.toLowerCase();
 
-    quantity = "";
-    quantityValue = "";
-    quantityUnit = "";
+    weight = "";
+    weightValue = "";
+    weightUnit = "";
     bool productTypeFound = false;
 
     // Check each product type for an exact match
@@ -186,7 +186,7 @@ List<Item> readFromSp() {
     setState(() {});
   }
 
-  void processQuantity(String spokenWords) {
+  void processWeight(String spokenWords) {
     
     String normalizedWords = spokenWords.toLowerCase();
 
@@ -194,7 +194,7 @@ List<Item> readFromSp() {
     List<String> words = normalizedWords.split(RegExp(r'\s+')); // Handle multiple spaces and punctuation
 
     // Extract possible quantity and unit
-    String possibleQuantity = "";
+    String possibleWeight = "";
     String possibleUnit = "";
 
     if (productType.isEmpty) {
@@ -205,28 +205,28 @@ List<Item> readFromSp() {
     // Iterate through words to find quantity and unit
     for (int i = 0; i < words.length; i++) {
       if (double.tryParse(words[i]) != null) {
-        possibleQuantity = words[i];
+        possibleWeight = words[i];
       } else if (unitMap.containsKey(words[i])) {
         possibleUnit = unitMap[words[i]] ?? "";
       }
     }
 
     // Check if both quantity and unit were found
-    if (possibleQuantity.isNotEmpty && possibleUnit.isNotEmpty) {
+    if (possibleWeight.isNotEmpty && possibleUnit.isNotEmpty) {
       // Set the quantity value and unit
-      quantityValue = possibleQuantity;
-      quantityUnit = possibleUnit;
-      quantity = "$quantityValue $quantityUnit";
+      weightValue = possibleWeight;
+      weightUnit = possibleUnit;
+      weight = "$weightValue $weightUnit";
 
       noItems = filterSearchItems();
       if (noItems > 0) {
-        response = "Quantity $quantity is available and the number of items found was $noItems for $productType";
+        response = "Quantity $weight is available and the number of items found was $noItems for $productType";
       } else {
-        response ="quantity $quantity is not available for $productType";
+        response ="quantity $weight is not available for $productType";
       }
     } else {
       // Handle missing quantity or unit
-      if (possibleQuantity.isEmpty) {
+      if (possibleWeight.isEmpty) {
         response = "Sorry, I couldn't find a quantity in your request.";
       } else if (possibleUnit.isEmpty) {
         response ="Sorry, I couldn't find a valid unit. Please specify a valid unit like liters, kilograms, etc.";
@@ -249,7 +249,7 @@ List<Item> readFromSp() {
     }
 
     // Ensure quantity is mentioned
-    if (quantity.isEmpty) {
+    if (weight.isEmpty) {
       response = "Please specify the quantity first.";
       speak(response);
       return;
@@ -305,7 +305,7 @@ List<Item> readFromSp() {
 
 
   void describeItemFunc() {
-    response = describeItem(searchedItems, productType, quantity, brand);
+    response = describeItem(searchedItems, productType, weight, brand);
   }
 
 void addToCart() {
@@ -317,11 +317,21 @@ void addToCart() {
     Item newItem = Item(
       productId: searchedItem.productID,
       name: searchedItem.name,
+      price: searchedItem.price
     );
 
-    // Add the new item to the items list
-    items.add(newItem);
+    // Read the current cart from SharedPreferences
+    List<Item> currentCartItems = readFromSp();
+    
+    // Add the new item to the current cart items list
+    currentCartItems.add(newItem);
+
+    // Update the items list with the combined list
+    items = currentCartItems;
+
+    // Save the updated cart back to SharedPreferences
     saveIntoSp();
+
     // Optionally, print or provide a confirmation message
     response = '${newItem.name} has been added to the cart.';
     
@@ -374,9 +384,9 @@ void viewCart() {
     // Clear the search-related variables
     previousType = productType;
     productType = "";
-    quantity = "";
-    quantityValue = "";
-    quantityUnit = "";
+    weight = "";
+    weightValue = "";
+    weightUnit = "";
     brand = "";
 
     searchedItems.clear();
@@ -404,14 +414,20 @@ void viewCart() {
     }
   }
 
+  void manageCart() {
+ 
+  response = "Navigating to the Cart Management Page";
+  Navigator.pushNamed(context, '/cart'); 
+}
+
   bool _speechEnabled = false;
   String wordsSpoken = "";
   String response = "";
   String productType = "";
-  String quantity = "";
+  String weight = "";
   String brand = "";
-  String quantityValue = ""; // Numeric part of quantity
-  String quantityUnit = ""; // Unit part of quantity
+  String weightValue = ""; // Numeric part of weight
+  String weightUnit = ""; // Unit part of weight
   int noItems = 0;
   String previousType = "";
 
@@ -497,17 +513,19 @@ void viewCart() {
       return;
     } else if (spokenWords.contains("product type")) {
       processProductType(spokenWords);
-    } else if (spokenWords.contains("quantity")) {
-      processQuantity(spokenWords);
+    } else if (spokenWords.contains("wait")) {
+      processWeight(spokenWords);
     } else if (spokenWords.contains("brands")) {
       listBrandFunc();
     } else if (spokenWords.contains("brand")) {
       processBrand(spokenWords);
     } else if (spokenWords.contains("describe item")) {
       describeItemFunc();
-    } else if (spokenWords.contains("add item to cart")) {
+    } else if (spokenWords.contains("item")) {
       addToCart();
-    }  else {
+    } else if (spokenWords.contains("manage card")) {
+      manageCart();
+    } else {
       // If none of the keywords match, set response to prompt the user again
       response = getResponse("error");
     }
@@ -595,7 +613,7 @@ void viewCart() {
                         child: ListTile(
                           title: Text(item.name),
                           subtitle: Text(
-                              "Type: ${item.type}\nBrand: ${item.brand}\nPrice: \$${item.price}\nQuantity: ${item.quantity} ${item.unit}"),
+                              "Type: ${item.type}\nBrand: ${item.brand}\nPrice: \$${item.price}\nQuantity: ${item.weight} ${item.unit}"),
                         ),
                       );
                     },

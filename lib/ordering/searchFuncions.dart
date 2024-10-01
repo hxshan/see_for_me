@@ -1,23 +1,23 @@
 import 'package:see_for_me/models/groceryItem.dart';
 
-String describeItem(List<GroceryItem> items, String productType, String quantity, String brand) {
+String describeItem(List<GroceryItem> items, String productType, String weight, String brand) {
   String response;
 
   if (items.isEmpty) {
     // No items found at all
-    if (productType.isEmpty && quantity.isEmpty && brand.isEmpty) {
+    if (productType.isEmpty && weight.isEmpty && brand.isEmpty) {
       response = "Please search for an item.";
     } else {
       // User searched with product type, quantity, and brand but no item found
-      response = "No items found under the product type '$productType', quantity '$quantity', and brand '$brand'.";
+      response = "No items found under the product type '$productType', weight '$weight', and brand '$brand'.";
     }
   } else if (items.length == 1) {
     // One item found, describe the item
     var item = items[0];
-    response = "Item found: ${item.name} with price ${item.price} and quantity available is ${item.quantity}.";
+    response = "Item found: ${item.name} with price ${item.price} and weight available is ${item.weight}.";
   } else {
     // Multiple items found, no description given
-    response = "Multiple items found. Please refine your search by specifying all requirements: brand and quantity.";
+    response = "Multiple items found. Please refine your search by specifying all requirements: brand and weight.";
   }
   return response;
 }
