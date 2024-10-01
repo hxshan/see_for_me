@@ -42,6 +42,9 @@ dependencies:
   pedometer: ^4.0.2
   geolocator: ^13.0.1
 
+  shared_preferences: ^2.3.2
+
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
