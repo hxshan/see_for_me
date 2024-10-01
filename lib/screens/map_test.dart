@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:see_for_me/data/node.dart';
 import 'package:see_for_me/data/tile.dart';
+import 'package:see_for_me/services/compass.dart';
+import 'package:see_for_me/services/jump_point_search.dart';
 import 'package:see_for_me/services/pathfinding.dart';
 import 'package:see_for_me/services/pathnarration.dart';
+
+import '../services/Direction.dart';
 
 class MapTest extends StatefulWidget {
   const MapTest({super.key});
@@ -20,10 +25,28 @@ class _MapTestState extends State<MapTest> {
   final int gridSize = 10;
   final double obstacleProbability = 0.1;
 
+  final Compass _compass = Compass();
+  Direction _currentFacing = Direction.north;
+
   @override
   void initState() {
     super.initState();
     initializeGrid();
+
+    _compass.startListening();
+
+    Timer.periodic(Duration(seconds: 1), (timer) async {
+      double heading = await _compass.getHeading();
+      setState(() {
+        _currentFacing = _compass.getCardinalDirection(heading);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _compass.stopListening(); // Stop the compass listener
+    super.dispose();
   }
 
   void initializeGrid() {
@@ -55,21 +78,22 @@ class _MapTestState extends State<MapTest> {
 
   void findPath() {
     List<Node> path = findPathWithAStar(grid, startTile, endTile);
+    //List<Node> path = jumpPointSearch(grid, startTile, endTile);
     print(path);
-    // narratePath(path);
+    narratePath(path, _currentFacing);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('A* Pathfinding Visualization'),
+        title: const Text('A* Pathfinding Visualization'),
       ),
       body: Column(
         children: [
           Expanded(
             child: GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 10,
               ),
               itemCount: 100,
@@ -88,13 +112,17 @@ class _MapTestState extends State<MapTest> {
               },
             ),
           ),
+          Text(
+            'Azimuth: $_currentFacing°',
+            style: TextStyle(fontSize: 24),
+          ),
           ElevatedButton(
             onPressed: findPath,
-            child: Text('Find Path'),
+            child: const Text('Find Path'),
           ),
           ElevatedButton(
             onPressed: initializeGrid,
-            child: Text('Reset Grid'),
+            child: const Text('Reset Grid'),
           ),
         ],
       ),

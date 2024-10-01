@@ -1,18 +1,13 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:see_for_me/data/node.dart';
 import 'package:see_for_me/data/tile.dart';
 import 'package:collection/collection.dart';
 
 List<List<Node>> _convertTileGrid(List<List<Tile?>> grid) {
-  if (grid == null) {
-    return [[]];
-  }
-
   return List.generate(grid.length, (y) {
     return List.generate(grid[y].length, (x) {
-      return Node(grid[y][x]);
+      return Node(grid[y][x]!);
     });
   });
 }
@@ -44,7 +39,7 @@ List<Node> findPathWithAStar(
     }
 
     for (var neighbor in _getNeighbors(grid, current)) {
-      if (neighbor?.tile?.type == "Wall" || closedList.contains(neighbor)) {
+      if (neighbor.tile?.type == "Wall" || closedList.contains(neighbor)) {
         continue;
       }
 

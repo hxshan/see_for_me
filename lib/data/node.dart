@@ -1,7 +1,7 @@
 import 'package:see_for_me/data/tile.dart';
 
 class Node {
-  final Tile? tile;
+  final Tile tile;
   double g = 0, h = 0;
   Node? parent;
 
