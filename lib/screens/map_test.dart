@@ -56,8 +56,10 @@ class _MapTestState extends State<MapTest> {
       (y) => List.generate(
         gridSize,
         (x) => Tile(
+            id: 0,
             x: x,
             y: y,
+            products: [],
             type: random.nextDouble() < obstacleProbability ? "Wall" : "Empty"),
       ),
     );

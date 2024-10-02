@@ -4,7 +4,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
-
 import 'shoppingList.dart';
 //import 'package:see_for_me/screens/shoppingListPage.dart';
 //import 'shoppingListTest.dart';
@@ -60,8 +59,40 @@ void processCommand(SpeechRecognitionResult result) {
     speak(response); // Speak the response
     // Navigate to the '/order' page
     Navigator.pushNamed(context, '/order');
-    
+  
     return; // Exit the function after handling this command
+    } else if (spokenWords.contains('locate')) {
+      response = "Retrieving Store information";
+      speak(response);
+      Navigator.pushNamed(context, '/map');
+    } else {
+      response = "Say again";
+      speak(response); // Speak the response
+    }
+
+    setState(() {
+      wordsSpoken = spokenWords;
+    });
+
+    if (spokenWords.contains("create new list")) {
+      _startNewList();
+    } else if (addQuantityState) {
+      addItemToList(spokenWords);
+    } else if (createNewListState) {
+      if (result == 'finish list') {
+        _finishNewList();
+      } else {
+        setQuantity(spokenWords);
+      }
+    } else if (result == "read list") {
+      _readList();
+    } else if (result == 'read next item') {
+      //_readNextItem();
+    } else if (result == "delete list") {
+      _deleteList();
+    } else {
+      speak("Command not found");
+    }
   }
 
   setState(() {
@@ -93,13 +124,13 @@ void processCommand(SpeechRecognitionResult result) {
 }
 
   void _startNewList() {
-    speak("Starting a new list. Please say items to add. Say 'finish list' when done.");
+    speak(
+        "Starting a new list. Please say items to add. Say 'finish list' when done.");
     setState(() {
       createNewListState = true;
       addQuantityState = false;
       // shoppingList.clearList();
     });
-    
   }
 
   void setQuantity(String result) {
@@ -114,7 +145,8 @@ void processCommand(SpeechRecognitionResult result) {
     int? quantity = int.tryParse(qtyString);
     if (quantity != null) {
       shoppingList.addItem(tempItem, quantity);
-      speak("Added $quantity ${quantity == 1 ? 'unit' : 'units'} of $tempItem to the list.");
+      speak(
+          "Added $quantity ${quantity == 1 ? 'unit' : 'units'} of $tempItem to the list.");
       setState(() {
         tempItem = "";
         addQuantityState = false;
@@ -125,13 +157,13 @@ void processCommand(SpeechRecognitionResult result) {
   }
 
   void _finishNewList() {
-    speak("List creation finished. Your list has ${shoppingList.itemList.length} items.");
+    speak(
+        "List creation finished. Your list has ${shoppingList.itemList.length} items.");
     setState(() {
       createNewListState = false;
       addQuantityState = false;
-    });  
+    });
   }
-
 
   Future<void> _readList() async {
     if (shoppingList.itemList.isEmpty) {
@@ -150,6 +182,7 @@ void processCommand(SpeechRecognitionResult result) {
 
     await speak("That's all the items in your list.");
   }
+
 /*
   Future<void> _readNextItem() async {
     String? nextItem = shoppingList.getNextUnreadItem();
@@ -173,15 +206,13 @@ void processCommand(SpeechRecognitionResult result) {
     int itemCount = shoppingList.itemList.length;
     shoppingList.clearList();
 
-    setState(() {
-    });
+    setState(() {});
 
-    await speak("All $itemCount items have been deleted from your shopping list.");
+    await speak(
+        "All $itemCount items have been deleted from your shopping list.");
   }
 
-
-
-   void _onSpeechResult(SpeechRecognitionResult result) {
+  void _onSpeechResult(SpeechRecognitionResult result) {
     // Only process the command when the user has finished speaking
     if (result.finalResult) {
       processCommand(result);
