@@ -11,6 +11,9 @@ import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:see_for_me/models/groceryItem.dart'; //importing class and mock data
 import 'package:see_for_me/ordering/searchFuncions.dart';
 import 'package:see_for_me/ordering/searchResponses.dart';
+import 'package:http/http.dart' as http;
+
+
 
 class OrderingPage extends StatefulWidget {
   const OrderingPage({super.key});
@@ -23,13 +26,79 @@ class _OrderingPageState extends State<OrderingPage> {
   final FlutterTts flutterTts = FlutterTts();
   final SpeechToText _speechToText = SpeechToText();
 
-  final List<String> productTypes = [
-    "milk powder",
-    "milk",
-    "flour",
-    "soda",
-    "rice"
-  ];
+  final List<Map<String, List<String>>> brandList = [];
+  final List<String> productTypes = [];
+
+Future<void> fetchBrandData() async {
+  // URL of the API endpoint
+  final url = Uri.parse('http://10.0.2.2:5224/api/ProductType');
+
+  try {
+    // Make the GET request
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      // If the server returns a 200 OK response, parse the JSON
+      var data = json.decode(response.body);
+
+      // Create an empty list to store the formatted data
+      
+
+      // Loop through the product types from the response
+      for (var productType in data) {
+        String productTypeName = productType['name'];
+
+        // Extract the list of brand names for each product type
+        List<String> brandNames = [];
+        for (var brand in productType['brands']) {
+          brandNames.add(brand['name']);
+        }
+
+        // Add the product type and its brands to the brandList
+        brandList.add({productTypeName: brandNames});
+      }
+
+      // Print the formatted brandList to verify
+      print('Brand List: $brandList');
+    } else {
+      // If the server returns an error, handle it accordingly
+      print('Failed to load data. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    // Handle any errors that might occur during the request
+    print('Error: $e');
+  }
+}
+
+Future<void> fetchProductTypes() async {
+  // URL of the API endpoint
+  final url = Uri.parse('http://10.0.2.2:5224/api/ProductType/justtypes');
+
+  try {
+    // Make the GET request
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      // If the server returns a 200 OK response, parse the JSON
+      List<dynamic> data = json.decode(response.body);
+
+      // Convert the dynamic list to a List<String> and merge with existing list
+      List<String> fetchedProductTypes = List<String>.from(data);
+
+      // Add new product types to the existing productTypes list
+      productTypes.addAll(fetchedProductTypes);
+
+      print('Updated Product Types: $productTypes');
+    } else {
+      // If the server returns an error, handle it accordingly
+      print('Failed to load product types. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    // Handle any errors that might occur during the request
+    print('Error: $e');
+  }
+}
+ 
 
   Map<String, String> unitMap = {
     "liters": "l",
@@ -47,21 +116,6 @@ class _OrderingPageState extends State<OrderingPage> {
     // Add more units as needed
   };
 
-  final brandList = [
-    {
-      "milk powder": ["Anchor", "Maliban", "Nestle"]
-    },
-    {
-      "biscuits": ["Oreo", "Marie", "Digestive"]
-    },
-    {
-      "soda": ["fanta", "sprite", "mounten dew"]
-    },
-    {
-      "milk": ["Anchor", "Maliban", "Nestle"]
-    }
-    // Add more categories and brands as needed
-  ];
 
   final Map<String, String> misrecognizedWords = {
     "melbourne": "Maliban",
@@ -130,7 +184,7 @@ List<Item> readFromSp() {
 
     int matchedItemsCount = 0;
 
-    // Filter groceryItems based on the selected productType, quantity, and brand
+    // Filter groceryItems based on the selected productType, Weight, and brand
     for (var item in groceryItems) {
       bool matchesType = productType.isEmpty ||
           item.type.toLowerCase() == productType.toLowerCase();
@@ -193,7 +247,7 @@ List<Item> readFromSp() {
     // Split the spoken words into individual words
     List<String> words = normalizedWords.split(RegExp(r'\s+')); // Handle multiple spaces and punctuation
 
-    // Extract possible quantity and unit
+  
     String possibleWeight = "";
     String possibleUnit = "";
 
@@ -202,7 +256,7 @@ List<Item> readFromSp() {
       return;
     }
 
-    // Iterate through words to find quantity and unit
+    
     for (int i = 0; i < words.length; i++) {
       if (double.tryParse(words[i]) != null) {
         possibleWeight = words[i];
@@ -211,23 +265,23 @@ List<Item> readFromSp() {
       }
     }
 
-    // Check if both quantity and unit were found
+    
     if (possibleWeight.isNotEmpty && possibleUnit.isNotEmpty) {
-      // Set the quantity value and unit
+     
       weightValue = possibleWeight;
       weightUnit = possibleUnit;
       weight = "$weightValue $weightUnit";
 
       noItems = filterSearchItems();
       if (noItems > 0) {
-        response = "Quantity $weight is available and the number of items found was $noItems for $productType";
+        response = "Weight $weight is available and the number of items found was $noItems for $productType";
       } else {
-        response ="quantity $weight is not available for $productType";
+        response ="Weight $weight is not available for $productType";
       }
     } else {
-      // Handle missing quantity or unit
+    
       if (possibleWeight.isEmpty) {
-        response = "Sorry, I couldn't find a quantity in your request.";
+        response = "Sorry, I couldn't find a Weight in your request.";
       } else if (possibleUnit.isEmpty) {
         response ="Sorry, I couldn't find a valid unit. Please specify a valid unit like liters, kilograms, etc.";
       }
@@ -248,9 +302,9 @@ List<Item> readFromSp() {
       return;
     }
 
-    // Ensure quantity is mentioned
+    
     if (weight.isEmpty) {
-      response = "Please specify the quantity first.";
+      response = "Please specify the Weight first.";
       speak(response);
       return;
     }
@@ -308,7 +362,15 @@ List<Item> readFromSp() {
     response = describeItem(searchedItems, productType, weight, brand);
   }
 
-void addToCart() {
+  void announceCurrentPage(String pageName) {
+  // Construct the response to inform the user which page they are on
+  response = "You are currently on the $pageName page.";
+  
+  // Use the text-to-speech feature to speak the response
+  speak(response);
+}
+
+/*void addToCart() {
   // Check if there is only one item in the searchedItems list
   if (searchedItems.length == 1) {
     // If only one item is found, add it to the items list (cart)
@@ -339,6 +401,70 @@ void addToCart() {
     // If more than one item is found, prompt the user to refine their search
     response = "Please refine your search until only one item is left";
   }
+}*/
+
+void addToCart() {
+  // Check if there is only one item in the searchedItems list
+  if (searchedItems.length == 1) {
+    // If only one item is found, add it to the items list (cart)
+    GroceryItem searchedItem = searchedItems[0];
+
+    // Read the current cart from SharedPreferences
+    List<Item> currentCartItems = readFromSp();
+
+    // Check if the item already exists in the current cart
+    bool itemExists = currentCartItems.any((item) => item.productId == searchedItem.productID);
+
+    if (itemExists) {
+      // If the item already exists, return an error response
+      response = '${searchedItem.name} is already in the cart.';
+    } else {
+      // If the item is not in the cart, proceed to add it
+      Item newItem = Item(
+        productId: searchedItem.productID,
+        name: searchedItem.name,
+        price: searchedItem.price
+      );
+
+      // Add the new item to the current cart items list
+      currentCartItems.add(newItem);
+
+      // Update the items list with the combined list
+      items = currentCartItems;
+
+      // Save the updated cart back to SharedPreferences
+      saveIntoSp();
+
+      // Provide a confirmation message
+      response = '${newItem.name} has been added to the cart.';
+    }
+
+    // Speak the response to the user
+    speak(response);
+
+  } else {
+    // If more than one item is found, prompt the user to refine their search
+    response = "Please refine your search until only one item is left.";
+    speak(response);
+  }
+}
+
+void getCartItemCount() {
+  // Get the current cart items from SharedPreferences
+  List<Item> currentCartItems = readFromSp();
+  
+  // Get the count of items in the cart
+  int itemCount = currentCartItems.length;
+  
+  // Construct the response based on the item count
+  if (itemCount == 0) {
+    response = "Your cart is empty.";
+  } else {
+    response = "You have $itemCount items in your cart.";
+  }
+
+  // Speak the response
+  speak(response);
 }
 
 void viewCart() {
@@ -436,6 +562,8 @@ void viewCart() {
     getSharedPreferences();
     super.initState();
     _initSpeech();
+    fetchBrandData();
+    fetchProductTypes();
   }
 
   void _initSpeech() async {
@@ -523,9 +651,13 @@ void viewCart() {
       describeItemFunc();
     } else if (spokenWords.contains("item")) {
       addToCart();
+    } else if(spokenWords.contains("amount")){
+      getCartItemCount();
     } else if (spokenWords.contains("manage card")) {
       manageCart();
-    } else {
+    } else if(spokenWords.contains("current page")){
+      announceCurrentPage("Ordering");
+    }else {
       // If none of the keywords match, set response to prompt the user again
       response = getResponse("error");
     }
@@ -613,7 +745,7 @@ void viewCart() {
                         child: ListTile(
                           title: Text(item.name),
                           subtitle: Text(
-                              "Type: ${item.type}\nBrand: ${item.brand}\nPrice: \$${item.price}\nQuantity: ${item.weight} ${item.unit}"),
+                              "Type: ${item.type}\nBrand: ${item.brand}\nPrice: \$${item.price}\nWeight: ${item.weight} ${item.unit}"),
                         ),
                       );
                     },

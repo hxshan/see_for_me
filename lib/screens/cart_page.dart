@@ -106,6 +106,15 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
+    void announceCurrentPage(String pageName) {
+  // Construct the response to inform the user which page they are on
+  response = "You are currently on the $pageName page.";
+  
+  // Use the text-to-speech feature to speak the response
+  speak(response);
+}
+
+
   void processCommand(SpeechRecognitionResult result) {
   String spokenWords = result.recognizedWords.toLowerCase();
 
@@ -137,6 +146,10 @@ class _CartPageState extends State<CartPage> {
     handleQuantityInput(spokenWords);
   } else if(spokenWords.contains("total price")){
     promptTotalPrice();
+  } else if(spokenWords.contains("current page")){
+    announceCurrentPage("Manage cart");
+  } else if(spokenWords.contains("clear card")){
+    removeAllItems();
   } else if (isReviewing) {
     handleReviewCommand(spokenWords);
   } else {
@@ -258,6 +271,20 @@ void removeCurrentItem() {
     filteredItems.removeAt(currentItemIndex);
   });
   askAboutCurrentItem(); // Move to the next item
+}
+
+void removeAllItems() {
+  setState(() {
+    // Clear both the items and filteredItems lists
+    items.clear();
+    filteredItems.clear();
+  });
+
+  // Inform the user that all items have been removed from the cart
+  response = "All items have been removed from the cart.";
+  speak(response); // Use the TTS function to speak the response
+
+  // Optionally, you can navigate to another page or reset the cart state here
 }
 
 void updateItemQuantity(int quantity) {

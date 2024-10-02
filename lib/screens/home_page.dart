@@ -51,60 +51,46 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
- // void processCommand(result) {
-  //  String response = "";
-    // if (result.toString().toLowerCase().contains('hello')) {
-    //   response = maze[4][5].walkable.toString();
-    // } else {
-    //   response = "${result.recognizedWords}";
-    // }
+void processCommand(SpeechRecognitionResult result) {
+  String spokenWords = result.recognizedWords.toLowerCase();
 
-   // setState(() {
-      //wordsSpoken = response;
-   //   wordsSpoken = "${result.recognizedWords}";
-   // });
- //   speak("wajee is the best");
- // }
-
-  void processCommand(SpeechRecognitionResult result) {
-    String spokenWords = result.recognizedWords.toLowerCase();
-    // Compare the spoken words with "order online"
-    if (spokenWords.contains('order online')) {
-      response = "Navigating to Order Page";
-      speak(response); // Speak the response
-      // Navigate to the '/order' page
-      Navigator.pushNamed(context, '/order');
-    } else {
-      response = "Say again";
-      speak(response); // Speak the response
-    }
-
-    setState(() {
-      wordsSpoken = spokenWords;
-    });
-
-    result = result.recognizedWords.toLowerCase();
-    if (result == 'create new list') {
-      _startNewList();
-    } else if (addQuantityState) {
-      addItemToList(result);
-    }else if (createNewListState) {
-      if (result == 'finish list') {
-        _finishNewList();
-      } else {
-        setQuantity(result);
-      }
-    } else if (result == "read list"){
-      _readList();
-    } else if (result == 'read next item') {
-      //_readNextItem();
-    } else if(result == "delete list") {
-      _deleteList();
-    }else {
-      speak("Command not found");
-    }
+  // Compare the spoken words with "order online"
+  if (spokenWords.contains('order online')) {
+    response = "Navigating to Order Page";
+    speak(response); // Speak the response
+    // Navigate to the '/order' page
+    Navigator.pushNamed(context, '/order');
     
+    return; // Exit the function after handling this command
   }
+
+  setState(() {
+    wordsSpoken = spokenWords; // Store the recognized words
+  });
+
+  // Command handling
+  if (spokenWords == 'create new list') {
+    _startNewList();
+  } else if (spokenWords == 'finish list' && createNewListState) {
+    // This checks if the user is in the state of creating a new list
+    _finishNewList();
+  } else if (addQuantityState) {
+    // If the user is in the state of adding quantity, add the item to the list
+    addItemToList(spokenWords);
+  } else if (createNewListState) {
+    // Set quantity when creating a new list and spoken words are not 'finish list'
+    setQuantity(spokenWords);
+  } else if (spokenWords == "read list") {
+    _readList();
+  } else if (spokenWords == 'read next item') {
+    //_readNextItem();
+  } else if (spokenWords == "delete list") {
+    _deleteList();
+  } else {
+    // Default response if no valid command is recognized
+    speak("Command not found");
+  }
+}
 
   void _startNewList() {
     speak("Starting a new list. Please say items to add. Say 'finish list' when done.");
