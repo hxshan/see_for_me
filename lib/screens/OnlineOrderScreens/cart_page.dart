@@ -8,6 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart'; //shared preference
 import 'package:see_for_me/models/cartItem.dart';//cart class
 import 'dart:convert'; // For json.decode
 import 'package:see_for_me/ordering/searchResponses.dart';
+import 'package:http/http.dart' as http;
+import 'package:see_for_me/ordering/misrecognizeCommands.dart';
+
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -20,29 +23,57 @@ class _CartPageState extends State<CartPage> {
   final FlutterTts flutterTts = FlutterTts();
   final SpeechToText _speechToText = SpeechToText();
 
+  List<GroceryItem> groceryItems = []; //List of all products
+  List<Item> items = List.empty(growable: true); //List of all cart items
+  List<GroceryItem> filteredItems = List.empty(growable: true); //List of all filtered items
+
   bool _speechEnabled = false;
-  String wordsSpoken = "";
-  String response = "";
-  int currentItemIndex = 0; // Keeps track of the current item during review
-  bool isReviewing = false;
+  String wordsSpoken = ""; //User spoken words
+  String response = ""; //Respose to the user
+  int currentItemIndex = 0; //Keeps track of the current item during review
+  bool isReviewing = false; // Tracks if we're revieeing the items in cart
   bool awaitingQuantity = false; // Tracks if we're waiting for the quantity
 
-  List<Item> items = List.empty(growable: true);
-  List<GroceryItem> filteredItems = List.empty(growable: true);
 
 
-  @override
-  void initState() {
-    super.initState();
-    _initSpeech();
-    _loadCartItemsFromSharedPreferences();
+//Function to get all products
+  Future<void> fetchProducts() async {
+  final url = Uri.parse('http://10.0.2.2:5224/api/Product');
+
+  try {
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      // Parse the JSON response
+      List<dynamic> data = json.decode(response.body);
+
+      // Convert JSON data into GroceryItem objects
+      List<GroceryItem> fetchedItems = data.map((item) {
+        return GroceryItem(
+          productID: item['id'].toString(),
+          name: item['productName'],
+          type: item['type']['name'],
+          brand: item['brand']['name'],
+          price: item['unitprice'].toDouble(),
+          weight: double.parse(item['unitWeight']), // Parse string to double
+          unit: item['unit'] ?? '', // Handle null units
+        );
+      }).toList();
+
+      // Update the global groceryItems list
+      groceryItems = fetchedItems;
+
+      print('Grocery items updated: $groceryItems');
+
+    } else {
+      print('Failed to load products. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    print('Error fetching products: $e');
   }
+}
 
-  void _initSpeech() async {
-    _speechEnabled = await _speechToText.initialize();
-    setState(() {});
-  }
-
+//Function to load cart items from shared preference and to filteredList
   void _loadCartItemsFromSharedPreferences() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   List<String>? storedItems = prefs.getStringList('myCart');
@@ -64,30 +95,24 @@ class _CartPageState extends State<CartPage> {
 }
 
 
-  void _filterCartItems() {
-    setState(() {
-      filteredItems = groceryItems
-          .where((groceryItem) =>
-              items.any((item) => item.productId == groceryItem.productID))
-          .toList();
-    });
-  }
+//Function to update & save cart in shared preference
+void _saveUpdatedCart() async {
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String> itemStrings = items.map((item) => json.encode(item.toJson())).toList();
+  await prefs.setStringList('myCart', itemStrings);
+}
 
-  void askForItem(GroceryItem item) {
-    String question = "Do you want ${item.name}?";
-    speak(question);
-  }
 
-  void _startListening() async {
-    await _speechToText.listen(onResult: _onSpeechResult);
-    setState(() {});
-  }
+//Function to clear all items in shared preference
+Future<void> clearCartFromSharedPreferences() async {
+  final prefs = await SharedPreferences.getInstance();
+  prefs.remove('myCart');
+  
+  print("Cart has been cleared from SharedPreferences.");
+}
 
-  void _stopListening() async {
-    await _speechToText.stop();
-    setState(() {});
-  }
 
+//Function to get predefined responses
   String getResponse(String key) {
     if (key.contains("searching")) {
       for (var response in helpResponses) {
@@ -106,72 +131,42 @@ class _CartPageState extends State<CartPage> {
     }
   }
 
-    void announceCurrentPage(String pageName) {
-  // Construct the response to inform the user which page they are on
+
+//Function to filter items from the grocery list
+  void _filterCartItems() {
+    setState(() {
+      filteredItems = groceryItems
+          .where((groceryItem) =>
+              items.any((item) => item.productId == groceryItem.productID))
+          .toList();
+    });
+  }
+
+
+//Function to modify a item
+  void askForItem(GroceryItem item) {
+    String question = "Do you want ${item.name}?";
+    speak(question);
+  }
+
+//Function to annouce what page
+  void announceCurrentPage(String pageName) {
   response = "You are currently on the $pageName page.";
-  
-  // Use the text-to-speech feature to speak the response
   speak(response);
 }
 
-
-  void processCommand(SpeechRecognitionResult result) {
-  String spokenWords = result.recognizedWords.toLowerCase();
-
-  if (spokenWords.contains("repeat")) {
-      if (response.isNotEmpty) {
-        speak(response); // Repeat the last response
-      } else {
-        response = getResponse("error");
-        speak(response);
-      }
-      setState(() {
-        wordsSpoken = spokenWords;
-      });
-      return;
-    }
-
-
-  if (spokenWords.contains('start edit')) {
-    startEdit();
-  } else if (spokenWords.contains('describe item')) {
-    describeCurrentItem();
-  } else if(spokenWords.contains('start review')){
-    promptAllItemsInCart();
-  } else if(spokenWords.contains("add more")){
-    addItems();
-  } else if(spokenWords.contains("proceed")){
-    checkOut();
-  } else if (awaitingQuantity) {
-    handleQuantityInput(spokenWords);
-  } else if(spokenWords.contains("total price")){
-    promptTotalPrice();
-  } else if(spokenWords.contains("current page")){
-    announceCurrentPage("Manage cart");
-  } else if(spokenWords.contains("clear")){
-    removeAllItems();
-  } else if (isReviewing) {
-    handleReviewCommand(spokenWords);
-  } else {
-    response = "Say 'start review' to begin reviewing your cart.";
-    speak(response); // Speak the response
-  }
-
-  setState(() {
-    wordsSpoken = spokenWords;
-  });
-}
+//Function to describe current item
 void describeCurrentItem() {
   if (currentItemIndex < filteredItems.length) {
     final groceryItem = filteredItems[currentItemIndex];
     response = "${groceryItem.name} costs ${groceryItem.price}, and its weight is ${groceryItem.weight}.";
-    speak(response);
   } else {
     response = "No item to describe.";
-    speak(response);
   }
 }
 
+
+//Function to say user all items
 void promptAllItemsInCart() {
   if (filteredItems.isNotEmpty) {
     response = "You have the following items in your cart: ";
@@ -184,26 +179,23 @@ void promptAllItemsInCart() {
       // Calculate total price for the item (default quantity to 1 if null)
       int quantity = cartItem.quantity ?? 1;
       double totalPrice = quantity * groceryItem.price;
-
-      // Create the response string
+  
       response += "${groceryItem.name}, costing ${groceryItem.price.toStringAsFixed(2)} dollars per unit, weighing ${groceryItem.weight} ${groceryItem.unit}";
-
-      // Include quantity and total price in the response
       response += ", with a quantity of $quantity, totaling ${totalPrice.toStringAsFixed(2)} dollars.";
+      response += " ";
 
-      response += " "; // End sentence for each item
     }
-    speak(response); // Text-to-speech for the entire cart description
   } else {
-    speak("Your cart is empty.");
+    response = "Your cart is empty.";
   }
 }
 
+//Function to start editing each item one by one
 void startEdit() {
   if (filteredItems.isNotEmpty) {
     currentItemIndex = 0;
     isReviewing = true;
-    awaitingQuantity = false; // Ensure this is reset
+    awaitingQuantity = false;
     askAboutCurrentItem();
   } else {
     response = "Your cart is empty.";
@@ -211,6 +203,7 @@ void startEdit() {
   }
 }
 
+//Function to ask user about current item
 void askAboutCurrentItem() {
   double totalPrice = 0.0;
 
@@ -241,7 +234,8 @@ void askAboutCurrentItem() {
 }
 
 
-void handleReviewCommand(String spokenWords) {
+//Function to handle edit commands
+void handleEditCommand(String spokenWords) {
   if (spokenWords.contains('no')) {
     removeCurrentItem();
   } else if (spokenWords.contains('yes')) {
@@ -254,6 +248,7 @@ void handleReviewCommand(String spokenWords) {
   }
 }
 
+//Function to handle quantity input
 void handleQuantityInput(String spokenWords) {
   final quantity = _extractQuantity(spokenWords);
   if (quantity != null) {
@@ -265,28 +260,34 @@ void handleQuantityInput(String spokenWords) {
   }
 }
 
+
+//Function to remove current item
 void removeCurrentItem() {
   setState(() {
     items.removeWhere((item) => item.productId == filteredItems[currentItemIndex].productID);
     filteredItems.removeAt(currentItemIndex);
   });
-  askAboutCurrentItem(); // Move to the next item
+  askAboutCurrentItem();
 }
 
+
+//Function to remove all items from cart
 void removeAllItems() {
-  setState(() {
-    // Clear both the items and filteredItems lists
-    items.clear();
-    filteredItems.clear();
-  });
+  if (items.isEmpty) {
+    response = "There are no items in your cart to remove.";
+  } else {
+    setState(() {
+      items.clear();
+      filteredItems.clear();
+    });
 
-  // Inform the user that all items have been removed from the cart
-  response = "All items have been removed from the cart.";
-  speak(response); // Use the TTS function to speak the response
+    clearCartFromSharedPreferences();
 
-  // Optionally, you can navigate to another page or reset the cart state here
+    response = "All items have been removed from the cart.";
+  }
 }
 
+//Function to update item Quantity
 void updateItemQuantity(int quantity) {
   setState(() {
     items.firstWhere((item) => item.productId == filteredItems[currentItemIndex].productID)
@@ -294,32 +295,21 @@ void updateItemQuantity(int quantity) {
   });
   promptTotalPrice();
   currentItemIndex++;
-  askAboutCurrentItem(); // Move to the next item
-   printItemsWithQuantity();
+  askAboutCurrentItem();
 }
 
-void printItemsWithQuantity() {
-  if (items.isNotEmpty) {
-    for (var item in items) {
-      print(
-          "Product: ${item.name}, ID: ${item.productId}, Quantity: ${item.quantity ?? 'Not set'} Price : ${item.price}");
-    }
-  } else {
-    print("Your cart is empty.");
-  }
-}
 
+//Function to redirect user to add more items
 void addItems() {
- 
   response = "Navigating to the ordering Page to add more items";
   speak(response);
   Navigator.pushNamed(context, '/order'); 
 }
 
+//Function to redirect user to check out
 void checkOut() {
-  // Check if there are items in the cart
-  if (items.isEmpty) { // Assuming 'items' is your cart list
-    response = "No items found in your cart. Please add items before proceeding to checkout.";
+  if (items.isEmpty) { 
+    response = "No items found in your current cart. Please add items before proceeding to checkout.";
     speak(response);
   } else {
     response = "Navigating to the checkout page to complete order.";
@@ -327,31 +317,53 @@ void checkOut() {
     Navigator.pushNamed(context, '/checkout');
   }
 }
+
+
+//Function to extract quantity
 int? _extractQuantity(String spokenWords) {
   final match = RegExp(r'\d+').firstMatch(spokenWords);
   return match != null ? int.parse(match.group(0)!) : null;
 }
 
-void _saveUpdatedCart() async {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  List<String> itemStrings = items.map((item) => json.encode(item.toJson())).toList();
-  await prefs.setStringList('myCart', itemStrings);
+
+
+//Function to tell user the total price
+void promptTotalPrice() {
+  if (items.isEmpty) {
+    response = "There are no items in your cart to calculate the total price.";
+  } else {
+    double totalPrice = 0.0;
+
+    for (var item in items) {
+      totalPrice += item.quantity! * item.price;
+    }
+
+    response = "The total price of all items in your cart is \$${totalPrice.toStringAsFixed(2)}.";
+  }
 }
 
-void promptTotalPrice() {
-  double totalPrice = 0.0;
-
-  // Calculate total price since all items will have a quantity of at least 1
-  for (var item in items) {
-    totalPrice += item.quantity! * item.price;
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+    _loadCartItemsFromSharedPreferences();
+    fetchProducts(); //to fetch all products
   }
 
-  // Construct the response to inform the user about the total price
-  response = "The total price of all items in your cart is \$${totalPrice.toStringAsFixed(2)}.";
-  
-  speak(response);
-}
+  void _initSpeech() async {
+    _speechEnabled = await _speechToText.initialize();
+    setState(() {});
+  }
 
+    void _startListening() async {
+    await _speechToText.listen(onResult: _onSpeechResult);
+    setState(() {});
+  }
+
+  void _stopListening() async {
+    await _speechToText.stop();
+    setState(() {});
+  }
 
    void _onSpeechResult(SpeechRecognitionResult result) {
     // Only process the command when the user has finished speaking
@@ -374,6 +386,74 @@ void promptTotalPrice() {
       _startListening();
     }
   }
+
+  String correctMisrecognizedWords(String spokenWords) {
+  misrecognizedCommands.forEach((wrong, correct) {
+    if (spokenWords.contains(wrong)) {
+      spokenWords = spokenWords.replaceAll(wrong, correct);
+    }
+  });
+  return spokenWords;
+}
+
+
+
+
+
+  void processCommand(SpeechRecognitionResult result) {
+  String spokenWords = result.recognizedWords.toLowerCase();
+
+  spokenWords = correctMisrecognizedWords(spokenWords);
+
+  if (spokenWords.contains("repeat")) {
+      if (response.isNotEmpty) {
+        speak(response); // Repeat the last response
+      } else {
+        response = getResponse("error");
+        speak(response);
+      }
+      setState(() {
+        wordsSpoken = spokenWords;
+      });
+      return;
+    }
+
+
+  if (spokenWords.contains('start edit')) {
+    startEdit();
+  } else if (spokenWords.contains('describe item')) {
+    describeCurrentItem();
+  } else if(spokenWords.contains('start review')){
+    promptAllItemsInCart();
+  } else if(spokenWords.contains("add more")){
+    addItems();
+  } else if(spokenWords.contains("check out")){
+    checkOut();
+  } else if (awaitingQuantity) {
+    handleQuantityInput(spokenWords);
+  } else if(spokenWords.contains("total price")){
+    promptTotalPrice();
+  } else if(spokenWords.contains("current page")){
+    announceCurrentPage("Manage cart");
+  } else if(spokenWords.contains("clear all items")){
+    removeAllItems();
+  } else if (isReviewing) {
+    handleEditCommand(spokenWords);
+  } else {
+    response = getResponse("error");
+    
+  }
+
+  setState(() {
+    wordsSpoken = spokenWords;
+  });
+
+  speak(response);
+}
+
+
+
+
 
 
 @override
