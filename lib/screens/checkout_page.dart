@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
-import 'package:see_for_me/models/groceryItem.dart'; //grocery class and mock data
 import 'package:shared_preferences/shared_preferences.dart'; //shared preference
 import 'package:see_for_me/models/cartItem.dart';//cart class
 import 'dart:convert'; // For json.decode
@@ -88,6 +87,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
   }
 
+      void announceCurrentPage(String pageName) {
+  // Construct the response to inform the user which page they are on
+  response = "You are currently on the $pageName page.";
+  
+  // Use the text-to-speech feature to speak the response
+  speak(response);
+}
+
+
   @override
   void initState() {
     super.initState();
@@ -127,6 +135,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
     if(spokenWords.contains("price")){
     promptTotalPrice();
+  } else if(spokenWords.contains("current page")){
+    announceCurrentPage("Checkout");
   } else {
       response = "Say again";
       speak(response); // Speak the response
@@ -167,6 +177,13 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
 @override
 Widget build(BuildContext context) {
+  double totalPrice = 0.0;
+  
+  // Calculate total price for all items in the cart
+  for (var item in items) {
+    totalPrice += item.price * (item.quantity ?? 1);
+  }
+
   return Scaffold(
     appBar: AppBar(
       title: Text("Checkout Page"),
@@ -217,11 +234,11 @@ Widget build(BuildContext context) {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text("Price: \$${item.price.toStringAsFixed(2)}"),
-                              Text("Quantity: ${item.quantity}"),
+                              Text("Quantity: ${item.quantity ?? 1}"),
                             ],
                           ),
                           trailing: Text(
-                            "Total: \$${(item.price * item.quantity!).toStringAsFixed(2)}",
+                            "Total: \$${(item.price * (item.quantity ?? 1)).toStringAsFixed(2)}",
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -240,6 +257,17 @@ Widget build(BuildContext context) {
                       ),
                     ),
                   ),
+          ),
+
+          // Total price section at the end
+          SizedBox(height: 20),
+          Text(
+            "Total Price: \$${totalPrice.toStringAsFixed(2)}",
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
           
           SizedBox(height: 20),
