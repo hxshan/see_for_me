@@ -4,7 +4,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 
-
 import 'shoppingList.dart';
 //import 'package:see_for_me/screens/shoppingListPage.dart';
 //import 'shoppingListTest.dart';
@@ -51,20 +50,20 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
- // void processCommand(result) {
+  // void processCommand(result) {
   //  String response = "";
-    // if (result.toString().toLowerCase().contains('hello')) {
-    //   response = maze[4][5].walkable.toString();
-    // } else {
-    //   response = "${result.recognizedWords}";
-    // }
+  // if (result.toString().toLowerCase().contains('hello')) {
+  //   response = maze[4][5].walkable.toString();
+  // } else {
+  //   response = "${result.recognizedWords}";
+  // }
 
-   // setState(() {
-      //wordsSpoken = response;
-   //   wordsSpoken = "${result.recognizedWords}";
-   // });
- //   speak("wajee is the best");
- // }
+  // setState(() {
+  //wordsSpoken = response;
+  //   wordsSpoken = "${result.recognizedWords}";
+  // });
+  //   speak("wajee is the best");
+  // }
 
   void processCommand(SpeechRecognitionResult result) {
     String spokenWords = result.recognizedWords.toLowerCase();
@@ -74,6 +73,10 @@ class _HomePageState extends State<HomePage> {
       speak(response); // Speak the response
       // Navigate to the '/order' page
       Navigator.pushNamed(context, '/order');
+    } else if (spokenWords.contains('locate')) {
+      response = "Retrieving Store information";
+      speak(response);
+      Navigator.pushNamed(context, '/map');
     } else {
       response = "Say again";
       speak(response); // Speak the response
@@ -83,37 +86,35 @@ class _HomePageState extends State<HomePage> {
       wordsSpoken = spokenWords;
     });
 
-    result = result.recognizedWords.toLowerCase();
-    if (result == 'create new list') {
+    if (spokenWords.contains("create new list")) {
       _startNewList();
     } else if (addQuantityState) {
-      addItemToList(result);
-    }else if (createNewListState) {
+      addItemToList(spokenWords);
+    } else if (createNewListState) {
       if (result == 'finish list') {
         _finishNewList();
       } else {
-        setQuantity(result);
+        setQuantity(spokenWords);
       }
-    } else if (result == "read list"){
+    } else if (result == "read list") {
       _readList();
     } else if (result == 'read next item') {
       //_readNextItem();
-    } else if(result == "delete list") {
+    } else if (result == "delete list") {
       _deleteList();
-    }else {
+    } else {
       speak("Command not found");
     }
-    
   }
 
   void _startNewList() {
-    speak("Starting a new list. Please say items to add. Say 'finish list' when done.");
+    speak(
+        "Starting a new list. Please say items to add. Say 'finish list' when done.");
     setState(() {
       createNewListState = true;
       addQuantityState = false;
       // shoppingList.clearList();
     });
-    
   }
 
   void setQuantity(String result) {
@@ -128,7 +129,8 @@ class _HomePageState extends State<HomePage> {
     int? quantity = int.tryParse(qtyString);
     if (quantity != null) {
       shoppingList.addItem(tempItem, quantity);
-      speak("Added $quantity ${quantity == 1 ? 'unit' : 'units'} of $tempItem to the list.");
+      speak(
+          "Added $quantity ${quantity == 1 ? 'unit' : 'units'} of $tempItem to the list.");
       setState(() {
         tempItem = "";
         addQuantityState = false;
@@ -139,13 +141,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _finishNewList() {
-    speak("List creation finished. Your list has ${shoppingList.itemList.length} items.");
+    speak(
+        "List creation finished. Your list has ${shoppingList.itemList.length} items.");
     setState(() {
       createNewListState = false;
       addQuantityState = false;
-    });  
+    });
   }
-
 
   Future<void> _readList() async {
     if (shoppingList.itemList.isEmpty) {
@@ -164,6 +166,7 @@ class _HomePageState extends State<HomePage> {
 
     await speak("That's all the items in your list.");
   }
+
 /*
   Future<void> _readNextItem() async {
     String? nextItem = shoppingList.getNextUnreadItem();
@@ -187,15 +190,13 @@ class _HomePageState extends State<HomePage> {
     int itemCount = shoppingList.itemList.length;
     shoppingList.clearList();
 
-    setState(() {
-    });
+    setState(() {});
 
-    await speak("All $itemCount items have been deleted from your shopping list.");
+    await speak(
+        "All $itemCount items have been deleted from your shopping list.");
   }
 
-
-
-   void _onSpeechResult(SpeechRecognitionResult result) {
+  void _onSpeechResult(SpeechRecognitionResult result) {
     // Only process the command when the user has finished speaking
     if (result.finalResult) {
       processCommand(result);
