@@ -50,21 +50,21 @@ class _HomePageState extends State<HomePage> {
     setState(() {});
   }
 
-void processCommand(SpeechRecognitionResult result) {
-  String spokenWords = result.recognizedWords.toLowerCase();
+  void processCommand(SpeechRecognitionResult result) {
+    String spokenWords = result.recognizedWords.toLowerCase();
 
-  // Compare the spoken words with "order online"
-  if (spokenWords.contains('order online')) {
-    response = "Navigating to Order Page";
-    speak(response); // Speak the response
-    // Navigate to the '/order' page
-    Navigator.pushNamed(context, '/order');
-  
-    return; // Exit the function after handling this command
+    // Compare the spoken words with "order online"
+    if (spokenWords.contains('order online')) {
+      response = "Navigating to Order Page";
+      speak(response); // Speak the response
+      // Navigate to the '/order' page
+      Navigator.pushNamed(context, '/order');
+      return; // Exit the function after handling this command
     } else if (spokenWords.contains('locate')) {
       response = "Retrieving Store information";
       speak(response);
       Navigator.pushNamed(context, '/map');
+      return;
     } else {
       response = "Say again";
       speak(response); // Speak the response
@@ -93,35 +93,29 @@ void processCommand(SpeechRecognitionResult result) {
     } else {
       speak("Command not found");
     }
+    // Command handling
+    if (spokenWords == 'create new list') {
+      _startNewList();
+    } else if (spokenWords == 'finish list' && createNewListState) {
+      // This checks if the user is in the state of creating a new list
+      _finishNewList();
+    } else if (addQuantityState) {
+      // If the user is in the state of adding quantity, add the item to the list
+      addItemToList(spokenWords);
+    } else if (createNewListState) {
+      // Set quantity when creating a new list and spoken words are not 'finish list'
+      setQuantity(spokenWords);
+    } else if (spokenWords == "read list") {
+      _readList();
+    } else if (spokenWords == 'read next item') {
+      //_readNextItem();
+    } else if (spokenWords == "delete list") {
+      _deleteList();
+    } else {
+      // Default response if no valid command is recognized
+      speak("Command not found");
+    }
   }
-
-  setState(() {
-    wordsSpoken = spokenWords; // Store the recognized words
-  });
-
-  // Command handling
-  if (spokenWords == 'create new list') {
-    _startNewList();
-  } else if (spokenWords == 'finish list' && createNewListState) {
-    // This checks if the user is in the state of creating a new list
-    _finishNewList();
-  } else if (addQuantityState) {
-    // If the user is in the state of adding quantity, add the item to the list
-    addItemToList(spokenWords);
-  } else if (createNewListState) {
-    // Set quantity when creating a new list and spoken words are not 'finish list'
-    setQuantity(spokenWords);
-  } else if (spokenWords == "read list") {
-    _readList();
-  } else if (spokenWords == 'read next item') {
-    //_readNextItem();
-  } else if (spokenWords == "delete list") {
-    _deleteList();
-  } else {
-    // Default response if no valid command is recognized
-    speak("Command not found");
-  }
-}
 
   void _startNewList() {
     speak(
