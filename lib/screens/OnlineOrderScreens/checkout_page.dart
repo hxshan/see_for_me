@@ -8,6 +8,7 @@ import 'package:see_for_me/models/cartItem.dart';//cart class
 import 'dart:convert'; // For json.decode
 import 'package:see_for_me/ordering/searchResponses.dart';
 import 'package:see_for_me/models/user.dart';
+import 'package:see_for_me/models/itemsRequest.dart';
 
 
 
@@ -28,6 +29,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   String response = "";
 
   List<Item> items = List.empty(growable: true);
+  late ItemRequest itemRequest;
 
   final User user = User(
     id: "U12345",
@@ -37,7 +39,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     phoneNumber: "+1234567890",
   );
 
-    void _loadCartItemsFromSharedPreferences() async {
+  void _loadCartItemsFromSharedPreferences() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   List<String>? storedItems = prefs.getStringList('myCart');
   
@@ -88,6 +90,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
     super.initState();
     _initSpeech();
     _loadCartItemsFromSharedPreferences();
+
+    // Create the ItemRequest object with the user's ID and items once the cart items are loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (items.isNotEmpty) {
+        itemRequest = ItemRequest(userID: user.id, items: items);
+        print(itemRequest.toJson()); // Optionally, print the request object or use it
+      }
+    });
   }
 
   void _initSpeech() async {
