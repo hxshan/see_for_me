@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart'; //shared preference
 import 'package:see_for_me/models/cartItem.dart'; //cart class
 import 'dart:convert'; // For json.decode
 import 'package:see_for_me/ordering/searchResponses.dart';
-import 'package:see_for_me/models/user.dart';
 import 'package:see_for_me/models/itemsRequest.dart';
 import 'package:http/http.dart' as http;
 import 'package:see_for_me/models/client.dart';
@@ -32,7 +31,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   List<Item> items = List.empty(growable: true);
   late ItemRequest itemRequest;
 
-  final User user = User(
+  final Client user = Client(
     id: "U12345",
     name: "John Doe",
     address: "123 Main St, Cityville",
