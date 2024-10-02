@@ -7,22 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart'; //shared preference
 import 'package:see_for_me/models/cartItem.dart';//cart class
 import 'dart:convert'; // For json.decode
 import 'package:see_for_me/ordering/searchResponses.dart';
+import 'package:see_for_me/models/user.dart';
 
-class User {
-  String id;
-  String name;
-  String address;
-  String email;
-  String phoneNumber;
 
-  User({
-    required this.id,
-    required this.name,
-    required this.address,
-    required this.email,
-    required this.phoneNumber,
-  });
-}
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});

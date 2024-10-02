@@ -1,19 +1,17 @@
 import 'dart:convert';
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:see_for_me/models/cartItem.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:see_for_me/models/cartItem.dart'; //cart class
+import 'package:shared_preferences/shared_preferences.dart'; //shared preference
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:see_for_me/models/groceryItem.dart'; //importing class and mock data
 import 'package:see_for_me/ordering/searchFuncions.dart';
-import 'package:see_for_me/ordering/searchResponses.dart';
+import 'package:see_for_me/ordering/searchResponses.dart'; //responses
 import 'package:http/http.dart' as http;
-
-
+import 'package:see_for_me/ordering/misrecognizeCommands.dart';
 
 class OrderingPage extends StatefulWidget {
   const OrderingPage({super.key});
@@ -26,80 +24,138 @@ class _OrderingPageState extends State<OrderingPage> {
   final FlutterTts flutterTts = FlutterTts();
   final SpeechToText _speechToText = SpeechToText();
 
-  final List<Map<String, List<String>>> brandList = [];
-  final List<String> productTypes = [];
+  late SharedPreferences sp;
 
-Future<void> fetchBrandData() async {
-  // URL of the API endpoint
-  final url = Uri.parse('http://10.0.2.2:5224/api/ProductType');
+  getSharedPreferences() async {
+    sp = await SharedPreferences.getInstance();
+  }
 
-  try {
-    // Make the GET request
-    final response = await http.get(url);
+//Function to save item data to shared preference
+  saveIntoSp() {
+    List<String> itemListString =
+        items.map((item) => jsonEncode(item.toJson())).toList();
+    sp.setStringList("myCart", itemListString);
+  }
 
-    if (response.statusCode == 200) {
-      // If the server returns a 200 OK response, parse the JSON
-      var data = json.decode(response.body);
+//Function to clear data from shared preference
+  Future<void> clearCartFromSharedPreferences() async {
+    sp.remove('myCart');
+    print("Cart has been cleared from SharedPreferences.");
+  }
 
-      // Create an empty list to store the formatted data
-      
+//Function to read item data from shared preference
+  List<Item> readFromSp() {
+    List<String>? itemListString = sp.getStringList("myCart");
 
-      // Loop through the product types from the response
-      for (var productType in data) {
-        String productTypeName = productType['name'];
+    if (itemListString != null) {
+      return itemListString
+          .map((item) => Item.fromJson(json.decode(item)))
+          .toList();
+    } else {
+      return [];
+    }
+  }
 
-        // Extract the list of brand names for each product type
-        List<String> brandNames = [];
-        for (var brand in productType['brands']) {
-          brandNames.add(brand['name']);
+  final List<Map<String, List<String>>> brandList = []; //list of all brands from supermarket
+  final List<String> productTypes = []; //list of all product types from supermarket
+  List<GroceryItem> groceryItems = []; //list of all products from supermarket
+  final List<GroceryItem> searchedItems = []; //list of all searched items
+  List<Item> items = List.empty(growable: true); //list of all added items
+
+  bool _speechEnabled = false;
+  String wordsSpoken = ""; //User spoken words
+  String response = ""; //Respose to the user
+  String productType = ""; //product type storage
+  String weight = ""; //weight storage
+  String brand = ""; //brand storage
+  String weightValue = ""; // Numeric part of weight
+  String weightUnit = ""; // Unit part of weight
+  int noItems = 0; //number of items
+  String previousType = ""; //previous search product type
+
+//Function to get brands
+  Future<void> fetchBrandData() async {
+    final url = Uri.parse('http://10.0.2.2:5224/api/ProductType');
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        var data = json.decode(response.body);
+
+        for (var productType in data) {
+          String productTypeName = productType['name'];
+          List<String> brandNames = [];
+          for (var brand in productType['brands']) {
+            brandNames.add(brand['name']);
+          }
+          brandList.add({productTypeName: brandNames});
         }
 
-        // Add the product type and its brands to the brandList
-        brandList.add({productTypeName: brandNames});
+        print('Brand List: $brandList');
+      } else {
+        print('Failed to load data. Status code: ${response.statusCode}');
       }
-
-      // Print the formatted brandList to verify
-      print('Brand List: $brandList');
-    } else {
-      // If the server returns an error, handle it accordingly
-      print('Failed to load data. Status code: ${response.statusCode}');
+    } catch (e) {
+      print('Error: $e');
     }
-  } catch (e) {
-    // Handle any errors that might occur during the request
-    print('Error: $e');
   }
-}
 
-Future<void> fetchProductTypes() async {
-  // URL of the API endpoint
-  final url = Uri.parse('http://10.0.2.2:5224/api/ProductType/justtypes');
+//Function to get product types
+  Future<void> fetchProductTypes() async {
+    final url = Uri.parse('http://10.0.2.2:5224/api/ProductType/justtypes');
 
-  try {
-    // Make the GET request
-    final response = await http.get(url);
+    try {
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
-      // If the server returns a 200 OK response, parse the JSON
-      List<dynamic> data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+        List<String> fetchedProductTypes = List<String>.from(data);
 
-      // Convert the dynamic list to a List<String> and merge with existing list
-      List<String> fetchedProductTypes = List<String>.from(data);
+        productTypes.addAll(fetchedProductTypes);
 
-      // Add new product types to the existing productTypes list
-      productTypes.addAll(fetchedProductTypes);
-
-      print('Updated Product Types: $productTypes');
-    } else {
-      // If the server returns an error, handle it accordingly
-      print('Failed to load product types. Status code: ${response.statusCode}');
+        print('Updated Product Types: $productTypes');
+      } else {
+        print(
+            'Failed to load product types. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error: $e');
     }
-  } catch (e) {
-    // Handle any errors that might occur during the request
-    print('Error: $e');
   }
-}
- 
 
+//Function to get all products
+  Future<void> fetchProducts() async {
+    final url = Uri.parse('http://10.0.2.2:5224/api/Product');
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+
+        List<GroceryItem> fetchedItems = data.map((item) {
+          return GroceryItem(
+            productID: item['id'].toString(),
+            name: item['productName'],
+            type: item['type']['name'],
+            brand: item['brand']['name'],
+            price: item['unitprice'].toDouble(),
+            weight: double.parse(item['unitWeight']),
+            unit: item['unit'] ?? '',
+          );
+        }).toList();
+        groceryItems = fetchedItems;
+        print('Grocery items updated: $groceryItems');
+      } else {
+        print('Failed to load products. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching products: $e');
+    }
+  }
+
+//List of units for unit validation
   Map<String, String> unitMap = {
     "liters": "l",
     "liter": "l",
@@ -113,53 +169,15 @@ Future<void> fetchProductTypes() async {
     "g": "g",
     "milliliters": "ml",
     "ml": "ml"
-    // Add more units as needed
   };
 
-
+//list of all misrecognized brand names
   final Map<String, String> misrecognizedWords = {
     "melbourne": "Maliban",
     "ankhor": "Anchor",
   };
 
-  
-
-  final List<GroceryItem> searchedItems = [];
-  List<Item> items = List.empty(growable: true);
-
-  late SharedPreferences sp;
-
-  getSharedPreferences() async {
-    sp = await SharedPreferences.getInstance();
-  }
-
-  saveIntoSp(){
-    List<String> itemListString = items.map((item)=>jsonEncode(item.toJson())).toList();
-    sp.setStringList("myCart", itemListString);
-  }
-
-  /*readFromSp() {
-  List<String>? itemListString = sp.getStringList("myCart");
-
-  if (itemListString != null) {
-    items = itemListString.map((item) => Item.fromJson(json.decode(item))).toList();
-  } else {
-    // Initialize items as an empty list if null
-    items = [];
-  }
-}*/
-
-List<Item> readFromSp() {
-  List<String>? itemListString = sp.getStringList("myCart");
-
-  if (itemListString != null) {
-    return itemListString.map((item) => Item.fromJson(json.decode(item))).toList();
-  } else {
-    return [];
-  }
-}
-
-
+//Function to get responses from predefined texts
   String getResponse(String key) {
     if (key.contains("searching")) {
       for (var response in helpResponses) {
@@ -178,8 +196,18 @@ List<Item> readFromSp() {
     }
   }
 
+//Function to remove all items from cart
+void removeAllItems() {
+  if (items.isEmpty) {
+    response = "There are no items in your cart to remove.";
+  } else {
+    clearCartFromSharedPreferences();
+    response = "All items have been removed from the cart.";
+  }
+}
+
+//Function to filter items from search list
   int filterSearchItems() {
-    // Clear the previous search results
     searchedItems.clear();
 
     int matchedItemsCount = 0;
@@ -204,8 +232,8 @@ List<Item> readFromSp() {
     return matchedItemsCount;
   }
 
+//Function to filter based on product type
   void processProductType(String spokenWords) {
-    // Normalize spoken words by converting to lowercase
     String normalizedWords = spokenWords.toLowerCase();
 
     weight = "";
@@ -222,11 +250,13 @@ List<Item> readFromSp() {
         if (previousType.isEmpty || previousType == productType) {
           // If no previous type or the same product type is mentioned
           noItems = filterSearchItems();
-          response ="$productType product type searched and number of items found was $noItems";
+          response =
+              "$productType product type searched and number of items found was $noItems";
         } else if (previousType != productType) {
           // If a different product type is mentioned
           noItems = filterSearchItems();
-          response ="Changed to $productType. Number of items found was $noItems";
+          response =
+              "Changed to $productType. Number of items found was $noItems";
         }
         previousType = productType;
         break;
@@ -240,14 +270,12 @@ List<Item> readFromSp() {
     setState(() {});
   }
 
+//Function to filter based on weight
   void processWeight(String spokenWords) {
-    
     String normalizedWords = spokenWords.toLowerCase();
+    List<String> words = normalizedWords
+        .split(RegExp(r'\s+')); // Handle multiple spaces and punctuation
 
-    // Split the spoken words into individual words
-    List<String> words = normalizedWords.split(RegExp(r'\s+')); // Handle multiple spaces and punctuation
-
-  
     String possibleWeight = "";
     String possibleUnit = "";
 
@@ -256,7 +284,6 @@ List<Item> readFromSp() {
       return;
     }
 
-    
     for (int i = 0; i < words.length; i++) {
       if (double.tryParse(words[i]) != null) {
         possibleWeight = words[i];
@@ -265,44 +292,41 @@ List<Item> readFromSp() {
       }
     }
 
-    
     if (possibleWeight.isNotEmpty && possibleUnit.isNotEmpty) {
-     
       weightValue = possibleWeight;
       weightUnit = possibleUnit;
       weight = "$weightValue $weightUnit";
 
       noItems = filterSearchItems();
       if (noItems > 0) {
-        response = "Weight $weight is available and the number of items found was $noItems for $productType";
+        response =
+            "Weight $weight is available and the number of items found was $noItems for $productType";
       } else {
-        response ="Weight $weight is not available for $productType";
+        response = "Weight $weight is not available for $productType";
       }
     } else {
-    
       if (possibleWeight.isEmpty) {
         response = "Sorry, I couldn't find a Weight in your request.";
       } else if (possibleUnit.isEmpty) {
-        response ="Sorry, I couldn't find a valid unit. Please specify a valid unit like liters, kilograms, etc.";
+        response =
+            "Sorry, I couldn't find a valid unit. Please specify a valid unit like liters, kilograms, etc.";
       }
     }
 
     setState(() {});
   }
 
+//Function to filter based on brand
   void processBrand(String spokenWords) {
-    // Normalize spoken words by converting to lowercase
     String normalizedWords = spokenWords.toLowerCase();
     bool brandFound = false;
 
-    // Ensure product type is mentioned first
     if (productType.isEmpty) {
       response = "Please specify the product type first.";
       speak(response);
       return;
     }
 
-    
     if (weight.isEmpty) {
       response = "Please specify the Weight first.";
       speak(response);
@@ -318,7 +342,8 @@ List<Item> readFromSp() {
     });
 
     // Find the correct category (productType) and match the brand within it
-    if (brandList.any((category) => category.containsKey(productType.toLowerCase()))) {
+    if (brandList
+        .any((category) => category.containsKey(productType.toLowerCase()))) {
       // Extract the brands for the current product type
       List<String>? brands = brandList.firstWhere((category) => category
           .containsKey(productType.toLowerCase()))[productType.toLowerCase()];
@@ -335,9 +360,11 @@ List<Item> readFromSp() {
 
             // Respond based on whether items were found or not
             if (noItems == 0) {
-              response ="Sorry, no items found for the brand $brand in the selected product type.";
+              response =
+                  "Sorry, no items found for the brand $brand in the selected product type.";
             } else {
-              response ="$brand brand searched, and number of items found was $noItems.";
+              response =
+                  "$brand brand searched, and number of items found was $noItems.";
             }
             break;
           }
@@ -354,120 +381,66 @@ List<Item> readFromSp() {
     }
 
     setState(() {});
-
   }
 
-
+//Function to describe an item
   void describeItemFunc() {
     response = describeItem(searchedItems, productType, weight, brand);
   }
 
+//Function to announce current page
   void announceCurrentPage(String pageName) {
-  // Construct the response to inform the user which page they are on
-  response = "You are currently on the $pageName page.";
-  
-  // Use the text-to-speech feature to speak the response
-  speak(response);
-}
-
-/*void addToCart() {
-  // Check if there is only one item in the searchedItems list
-  if (searchedItems.length == 1) {
-    // If only one item is found, add it to the items list (cart)
-    GroceryItem searchedItem = searchedItems[0];
-
-    Item newItem = Item(
-      productId: searchedItem.productID,
-      name: searchedItem.name,
-      price: searchedItem.price
-    );
-
-    // Read the current cart from SharedPreferences
-    List<Item> currentCartItems = readFromSp();
-    
-    // Add the new item to the current cart items list
-    currentCartItems.add(newItem);
-
-    // Update the items list with the combined list
-    items = currentCartItems;
-
-    // Save the updated cart back to SharedPreferences
-    saveIntoSp();
-
-    // Optionally, print or provide a confirmation message
-    response = '${newItem.name} has been added to the cart.';
-    
-  } else {
-    // If more than one item is found, prompt the user to refine their search
-    response = "Please refine your search until only one item is left";
+    response = "You are currently on the $pageName page.";
   }
-}*/
 
-void addToCart() {
-  // Check if there is only one item in the searchedItems list
-  if (searchedItems.length == 1) {
-    // If only one item is found, add it to the items list (cart)
-    GroceryItem searchedItem = searchedItems[0];
+//Function to add item to cart
+  void addToCart() {
+    if (searchedItems.length == 1) {
+      GroceryItem searchedItem = searchedItems[0];
+      List<Item> currentCartItems = readFromSp();
 
-    // Read the current cart from SharedPreferences
-    List<Item> currentCartItems = readFromSp();
+      bool itemExists = currentCartItems
+          .any((item) => item.productId == searchedItem.productID);
 
-    // Check if the item already exists in the current cart
-    bool itemExists = currentCartItems.any((item) => item.productId == searchedItem.productID);
+      if (itemExists) {
+        response = '${searchedItem.name} is already in the cart.';
+      } else {
+        Item newItem = Item(
+            productId: searchedItem.productID,
+            name: searchedItem.name,
+            price: searchedItem.price);
 
-    if (itemExists) {
-      // If the item already exists, return an error response
-      response = '${searchedItem.name} is already in the cart.';
+        // Add the new item to the current cart items list
+        currentCartItems.add(newItem);
+
+        // Update the items list with the combined list
+        items = currentCartItems;
+
+        // Save the updated cart back to SharedPreferences
+        saveIntoSp();
+        response = '${newItem.name} has been added to the cart.';
+      }
     } else {
-      // If the item is not in the cart, proceed to add it
-      Item newItem = Item(
-        productId: searchedItem.productID,
-        name: searchedItem.name,
-        price: searchedItem.price
-      );
-
-      // Add the new item to the current cart items list
-      currentCartItems.add(newItem);
-
-      // Update the items list with the combined list
-      items = currentCartItems;
-
-      // Save the updated cart back to SharedPreferences
-      saveIntoSp();
-
-      // Provide a confirmation message
-      response = '${newItem.name} has been added to the cart.';
+      response = "Please refine your search until only one item is left.";
+      speak(response);
     }
-
-    // Speak the response to the user
-    speak(response);
-
-  } else {
-    // If more than one item is found, prompt the user to refine their search
-    response = "Please refine your search until only one item is left.";
-    speak(response);
-  }
-}
-
-void getCartItemCount() {
-  // Get the current cart items from SharedPreferences
-  List<Item> currentCartItems = readFromSp();
-  
-  // Get the count of items in the cart
-  int itemCount = currentCartItems.length;
-  
-  // Construct the response based on the item count
-  if (itemCount == 0) {
-    response = "Your cart is empty.";
-  } else {
-    response = "You have $itemCount items in your cart.";
   }
 
-  // Speak the response
-  speak(response);
-}
+//Function to get item count from cart
+  void getCartItemCount() {
+    List<Item> currentCartItems = readFromSp();
 
-void viewCart() {
+    int itemCount = currentCartItems.length;
+
+    if (itemCount == 0) {
+      response = "Your cart is empty.";
+    } else {
+      response = "You have $itemCount items in your cart.";
+    }
+  }
+
+//Snipet to view current cart items for checking
+  void viewCart() {
     List<Item> cartItems = readFromSp();
 
     // Display cart items in an alert dialog
@@ -505,9 +478,8 @@ void viewCart() {
     );
   }
 
-
+//Function to clear search and start a new search
   void clearSearch() {
-    // Clear the search-related variables
     previousType = productType;
     productType = "";
     weight = "";
@@ -517,53 +489,43 @@ void viewCart() {
 
     searchedItems.clear();
     response = "Previous search cleared. Ready for a new search.";
-
   }
 
+//Function to list all product types to user
   void listProductTypes() {
-
     String productList = productTypes.join(", ");
     response = "The available product types are: $productList.";
-    speak(response);
   }
 
-  void listBrandFunc(){
-    response = listBrands(productType,brandList);
+//Function to list all brands to user
+  void listBrandFunc() {
+    response = listBrands(productType, brandList);
   }
 
 // Function to tell the user what product type was searched
   void productSearched() {
     if (productType.isNotEmpty) {
-      response ="The previous product type you searched for was $previousType.";
+      response =
+          "The previous product type you searched for was $previousType.";
     } else {
-      response ="You haven't searched for any product type yet.";
+      response = "You haven't searched for any product type yet.";
     }
   }
 
+//Function to redirect user to manage cart page
   void manageCart() {
- 
-  response = "Navigating to the Cart Management Page";
-  Navigator.pushNamed(context, '/cart'); 
-}
-
-  bool _speechEnabled = false;
-  String wordsSpoken = "";
-  String response = "";
-  String productType = "";
-  String weight = "";
-  String brand = "";
-  String weightValue = ""; // Numeric part of weight
-  String weightUnit = ""; // Unit part of weight
-  int noItems = 0;
-  String previousType = "";
+    response = "Navigating to the Cart Management Page";
+    Navigator.pushNamed(context, '/cart');
+  }
 
   @override
   void initState() {
     getSharedPreferences();
     super.initState();
     _initSpeech();
-    fetchBrandData();
-    fetchProductTypes();
+    fetchBrandData(); //to fetch brands
+    fetchProductTypes(); //to fetch product types
+    fetchProducts(); //to fetch all products
   }
 
   void _initSpeech() async {
@@ -581,9 +543,23 @@ void viewCart() {
     setState(() {});
   }
 
-  // Function to process recognized voice commands
+
+
+String correctMisrecognizedWords(String spokenWords) {
+  misrecognizedCommands.forEach((wrong, correct) {
+    if (spokenWords.contains(wrong)) {
+      spokenWords = spokenWords.replaceAll(wrong, correct);
+    }
+  });
+  return spokenWords;
+}
+
+
+// Function to process recognized voice commands
   void processCommand(SpeechRecognitionResult result) {
     String spokenWords = result.recognizedWords.toLowerCase();
+
+    spokenWords = correctMisrecognizedWords(spokenWords);
 
     // Handle "repeat" command
     if (spokenWords.contains("repeat")) {
@@ -600,45 +576,19 @@ void viewCart() {
     }
 
     if (spokenWords.contains("clear search")) {
+      //Handle "clear search" command
       clearSearch();
-      setState(() {
-        wordsSpoken = spokenWords;
-      });
-      speak(response);
-      return;
-    }
-
-    if (spokenWords.contains("product types")) {
+    } else if (spokenWords.contains("clear cart")) {
+      //Handle "clear" command which will clear all items in cart
+      removeAllItems();
+    } else if (spokenWords.contains("product types")) {
+      //Handle "product types" command which will retuen all types to user
       listProductTypes();
-      setState(() {
-        wordsSpoken = spokenWords;
-      });
-      return;
-    }
-
-    if (spokenWords.contains("product type searched")) {
-      productSearched();
-      setState(() {
-        wordsSpoken = spokenWords;
-      });
-      return;
-    }
-
-    // Check for "help" command first
-    if (spokenWords.contains("help")) {
+    } else if (spokenWords.contains("help")) {
+      // Check for "help" command first
       response = getResponse("help");
-      setState(() {
-        wordsSpoken = spokenWords;
-      });
-      speak(response);
-      return;
     } else if (spokenWords.contains("searching")) {
       response = getResponse("searching");
-      setState(() {
-        wordsSpoken = spokenWords;
-      });
-      speak(response);
-      return;
     } else if (spokenWords.contains("product type")) {
       processProductType(spokenWords);
     } else if (spokenWords.contains("wait")) {
@@ -649,15 +599,15 @@ void viewCart() {
       processBrand(spokenWords);
     } else if (spokenWords.contains("describe item")) {
       describeItemFunc();
-    } else if (spokenWords.contains("item")) {
+    } else if (spokenWords.contains("add item")) {
       addToCart();
-    } else if(spokenWords.contains("amount")){
+    } else if (spokenWords.contains("amount")) {
       getCartItemCount();
     } else if (spokenWords.contains("manage card")) {
       manageCart();
-    } else if(spokenWords.contains("current page")){
+    } else if (spokenWords.contains("current page")) {
       announceCurrentPage("Ordering");
-    }else {
+    } else {
       // If none of the keywords match, set response to prompt the user again
       response = getResponse("error");
     }
@@ -668,8 +618,6 @@ void viewCart() {
 
     speak(response);
   }
-
- 
 
   void _onSpeechResult(SpeechRecognitionResult result) {
     if (result.finalResult) {
@@ -692,7 +640,7 @@ void viewCart() {
     await flutterTts.speak(text);
   }
 
- @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -745,7 +693,7 @@ void viewCart() {
                         child: ListTile(
                           title: Text(item.name),
                           subtitle: Text(
-                              "Type: ${item.type}\nBrand: ${item.brand}\nPrice: \$${item.price}\nWeight: ${item.weight} ${item.unit}"),
+                              "Type: ${item.type}\nBrand: ${item.brand}\nPrice: \Rs ${item.price}\nWeight: ${item.weight} ${item.unit}"),
                         ),
                       );
                     },

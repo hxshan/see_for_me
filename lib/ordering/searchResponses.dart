@@ -13,8 +13,6 @@ final List<Map<String, String>> helpResponses = [
   ];
 
   final List<Map<String, String>> responses = [
-    {"productType": "Please say the type of product you want to search for."},
-    {"Quantity": "Please specify the quantity in liters or grams "},
     {"brand": "Please say the brand you prefer."},
     {
       "help": '''these are the following help commands:
