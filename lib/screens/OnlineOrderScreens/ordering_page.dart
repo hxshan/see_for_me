@@ -61,6 +61,8 @@ class _OrderingPageState extends State<OrderingPage> {
   List<GroceryItem> groceryItems = []; //list of all products from supermarket
   final List<GroceryItem> searchedItems = []; //list of all searched items
   List<Item> items = List.empty(growable: true); //list of all added items
+  int currentItemIndex = 0; //Keeps track of the current item during review
+  bool isReviewing = false; // Tracks if we're revieeing the items in cart
 
   bool _speechEnabled = false;
   String wordsSpoken = ""; //User spoken words
@@ -201,6 +203,9 @@ void removeAllItems() {
   if (items.isEmpty) {
     response = "There are no items in your cart to remove.";
   } else {
+    setState(() {
+      items.clear();
+    });
     clearCartFromSharedPreferences();
     response = "All items have been removed from the cart.";
   }
@@ -385,7 +390,7 @@ void removeAllItems() {
 
 //Function to describe an item
   void describeItemFunc() {
-    response = describeItem(searchedItems, productType, weight, brand);
+    response = describeItem(searchedItems, productType, weight, brand , weightUnit);
   }
 
 //Function to announce current page
@@ -394,7 +399,7 @@ void removeAllItems() {
   }
 
 //Function to add item to cart
-  void addToCart() {
+/*  void addToCart() {
     if (searchedItems.length == 1) {
       GroceryItem searchedItem = searchedItems[0];
       List<Item> currentCartItems = readFromSp();
@@ -424,7 +429,44 @@ void removeAllItems() {
       response = "Please refine your search until only one item is left.";
       speak(response);
     }
-  }
+  }*/
+
+
+void addToCart(GroceryItem searchedItem) {
+
+  // Read current items from SharedPreferences
+  List<Item> currentCartItems = readFromSp(); 
+
+  // Check if the item already exists in the cart
+  bool itemExists = currentCartItems.any((item) => item.productId == searchedItem.productID);
+
+  if (itemExists) {
+    response = '${searchedItem.name} is already in the cart.';
+    speak(response); // Announce the result to the user
+    return; // Exit the function if the item already exists
+  } 
+  
+  // Create a new item to add to the cart
+  Item newItem = Item(
+    productId: searchedItem.productID,
+    name: searchedItem.name,
+    price: searchedItem.price,
+  );
+
+  print(newItem);
+
+  // Add the new item to the current cart items list
+  currentCartItems.add(newItem);
+
+  items = currentCartItems;
+
+  // Save the updated cart back to SharedPreferences
+  saveIntoSp(); // Ensure this function saves the updated cart correctly
+
+  response = '${newItem.name} has been added to the cart.';
+  speak(response); // Announce the result to the user
+}
+
 
 //Function to get item count from cart
   void getCartItemCount() {
@@ -518,6 +560,93 @@ void removeAllItems() {
     Navigator.pushNamed(context, '/cart');
   }
 
+// Function to start reviewing filtered items one by one
+void startEdit() {
+
+  if (productType.isEmpty) {
+      response = "Please specify the product type first and filter search";
+      speak(response);
+      return;
+    }
+
+    if (weight.isEmpty) {
+      response = "Please specify the Weight and filter search";
+      speak(response);
+      return;
+    }
+
+    if (brand.isEmpty) {
+      response = "Please specify the brand and filter search";
+      speak(response);
+      return;
+    }
+  
+  if (searchedItems.isNotEmpty) {
+    currentItemIndex = 0;
+    isReviewing = true;
+    askAboutCurrentItem();
+  } else {
+    response = "Your filtered items list is empty.";
+    speak(response);
+  }
+}
+
+void askAboutCurrentItem() {
+  if (currentItemIndex < searchedItems.length) {
+    final groceryItem = searchedItems[currentItemIndex];
+
+    response = "Do you want to keep ${groceryItem.name}, priced at \Rs ${groceryItem.price.toStringAsFixed(2)}? ";
+    speak(response);
+  } else {
+    response = "You have reviewed all items in your filtered list.";
+    speak(response);
+    isReviewing = false;
+  }
+}
+
+void handleEditCommand(String spokenWords) {
+  if (spokenWords.contains('no')) {
+    // Remove the current item from the searched items list
+    response = "${searchedItems[currentItemIndex].name} has been removed.";
+    speak(response);
+    
+    // Remove the current item from the list
+    searchedItems.removeAt(currentItemIndex);
+
+    // Check if there are still items left to review
+    if (currentItemIndex < searchedItems.length) {
+      askAboutCurrentItem(); // Ask about the next item
+    } else {
+      response = "You have reviewed all items in your filtered list.";
+      speak(response);
+      isReviewing = false; // End the reviewing session
+    }
+  } else if (spokenWords.contains('yes')) {
+    // Add the current item to the cart
+    GroceryItem currentItem = searchedItems[currentItemIndex];
+    addToCart(currentItem); // Call the updated addToCart function
+
+    // Move to the next item in the filtered list
+    currentItemIndex++;
+    
+    // Check if there are still items left to review
+    if (currentItemIndex < searchedItems.length) {
+      askAboutCurrentItem(); // Ask about the next item
+    } else {
+      response = "You have reviewed all items in your filtered list.";
+      speak(response);
+      isReviewing = false; // End the reviewing session
+    }
+  } else if (spokenWords.contains('stop')) {
+    response = "Exiting the review process.";
+    speak(response);
+    isReviewing = false; // End the reviewing session
+  } else {
+    response = "Please say yes, no, or stop.";
+    speak(response);
+  }
+}
+
   @override
   void initState() {
     getSharedPreferences();
@@ -578,7 +707,7 @@ String correctMisrecognizedWords(String spokenWords) {
     if (spokenWords.contains("clear search")) {
       //Handle "clear search" command
       clearSearch();
-    } else if (spokenWords.contains("clear cart")) {
+    } else if (spokenWords.contains("clear")) {
       //Handle "clear" command which will clear all items in cart
       removeAllItems();
     } else if (spokenWords.contains("product types")) {
@@ -591,7 +720,11 @@ String correctMisrecognizedWords(String spokenWords) {
       response = getResponse("searching");
     } else if (spokenWords.contains("product type")) {
       processProductType(spokenWords);
-    } else if (spokenWords.contains("wait")) {
+    } else if (spokenWords.contains('start review')) {
+      startEdit();
+    } else if (isReviewing) {
+      handleEditCommand(spokenWords);
+    }else if (spokenWords.contains("wait")) {
       processWeight(spokenWords);
     } else if (spokenWords.contains("brands")) {
       listBrandFunc();
@@ -599,9 +732,7 @@ String correctMisrecognizedWords(String spokenWords) {
       processBrand(spokenWords);
     } else if (spokenWords.contains("describe item")) {
       describeItemFunc();
-    } else if (spokenWords.contains("add item")) {
-      addToCart();
-    } else if (spokenWords.contains("amount")) {
+    } else if (spokenWords.contains("items in card")) {
       getCartItemCount();
     } else if (spokenWords.contains("manage card")) {
       manageCart();

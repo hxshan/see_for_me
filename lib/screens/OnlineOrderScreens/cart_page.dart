@@ -73,27 +73,36 @@ class _CartPageState extends State<CartPage> {
   }
 }
 
+
+
 //Function to load cart items from shared preference and to filteredList
-  void _loadCartItemsFromSharedPreferences() async {
+Future<void>_loadCartItemsFromSharedPreferences() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   List<String>? storedItems = prefs.getStringList('myCart');
-  
+
   if (storedItems != null) {
+    // Printing all items retrieved from SharedPreferences
+    print('Stored items in SharedPreferences: $storedItems');
+
     setState(() {
       // Decoding JSON strings into Item objects
       items = storedItems
           .map((itemString) => Item.fromJson(json.decode(itemString)))
           .toList();
     });
+
+    // Printing the decoded list of items
+    print('Decoded items: $items');
+
     _filterCartItems();
   } else {
     // If no items found in SharedPreferences, set items to an empty list
+    print('No items found in SharedPreferences.');
     setState(() {
       items = [];
     });
   }
 }
-
 
 //Function to update & save cart in shared preference
 void _saveUpdatedCart() async {
@@ -133,15 +142,20 @@ Future<void> clearCartFromSharedPreferences() async {
 
 
 //Function to filter items from the grocery list
-  void _filterCartItems() {
+void _filterCartItems() {
+  // Ensure both items and groceryItems are loaded before filtering
+  if (items.isNotEmpty && groceryItems.isNotEmpty) {
     setState(() {
       filteredItems = groceryItems
           .where((groceryItem) =>
               items.any((item) => item.productId == groceryItem.productID))
           .toList();
     });
+    print('Filtered items: $filteredItems');
+  }else {
+    print('Either cart items or grocery items are empty.');
   }
-
+}
 
 //Function to modify a item
   void askForItem(GroceryItem item) {
@@ -159,7 +173,16 @@ Future<void> clearCartFromSharedPreferences() async {
 void describeCurrentItem() {
   if (currentItemIndex < filteredItems.length) {
     final groceryItem = filteredItems[currentItemIndex];
-    response = "${groceryItem.name} costs ${groceryItem.price}, and its weight is ${groceryItem.weight}.";
+    
+    // Find the corresponding item in the items list to get the quantity
+    Item? cartItem = items.firstWhere(
+        (item) => item.productId == groceryItem.productID,
+        orElse: () => Item(productId: groceryItem.productID, name: groceryItem.name, price: groceryItem.price)); // Fallback to a new Item without quantity
+
+    // Get the quantity (default to 1 if null)
+    int quantity = cartItem.quantity ?? 1;
+
+    response = "${groceryItem.name} costs Rs ${groceryItem.price}, weighs ${groceryItem.weight} ${groceryItem.unit}, and you have a quantity of $quantity.";
   } else {
     response = "No item to describe.";
   }
@@ -180,7 +203,7 @@ void promptAllItemsInCart() {
       int quantity = cartItem.quantity ?? 1;
       double totalPrice = quantity * groceryItem.price;
   
-      response += "${groceryItem.name}, costing ${groceryItem.price.toStringAsFixed(2)} dollars per unit, weighing ${groceryItem.weight} ${groceryItem.unit}";
+      response += "${groceryItem.name}, costing ${groceryItem.price.toStringAsFixed(2)} Rupees per unit, weighing ${groceryItem.weight} ${groceryItem.unit}";
       response += ", with a quantity of $quantity, totaling ${totalPrice.toStringAsFixed(2)} dollars.";
       response += " ";
 
@@ -226,7 +249,7 @@ void askAboutCurrentItem() {
     response = "Do you want to keep ${groceryItem.name}${quantityInfo} Say yes or no.";
     speak(response);
   } else {
-    response = "You have reviewed all items in your cart. and the total price of all items in your cart is \$${totalPrice.toStringAsFixed(2)}.";
+    response = "You have reviewed all items in your cart. and the total price of all items in your cart is \Rs ${totalPrice.toStringAsFixed(2)}.";
     speak(response);
     isReviewing = false;
     _saveUpdatedCart();
@@ -321,9 +344,48 @@ void checkOut() {
 
 //Function to extract quantity
 int? _extractQuantity(String spokenWords) {
-  final match = RegExp(r'\d+').firstMatch(spokenWords);
-  return match != null ? int.parse(match.group(0)!) : null;
+  // Normalize spoken words to lowercase for comparison
+  String normalizedWords = spokenWords.toLowerCase();
+
+  // Check if the spoken words contain a number in digits
+  final match = RegExp(r'\d+').firstMatch(normalizedWords);
+  if (match != null) {
+    return int.parse(match.group(0)!);
+  }
+
+  // Check if the spoken words contain a word-based number
+  for (var word in numberWords.keys) {
+    if (normalizedWords.contains(word)) {
+      return numberWords[word];
+    }
+  }
+
+  // Return null if no quantity found
+  return null;
 }
+
+final Map<String, int> numberWords = {
+  'one': 1,
+  'two': 2,
+  'three': 3,
+  'four': 4,
+  'five': 5,
+  'six': 6,
+  'seven': 7,
+  'eight': 8,
+  'nine': 9,
+  'ten': 10,
+  'eleven': 11,
+  'twelve': 12,
+  'thirteen': 13,
+  'fourteen': 14,
+  'fifteen': 15,
+  'sixteen': 16,
+  'seventeen': 17,
+  'eighteen': 18,
+  'nineteen': 19,
+  'twenty': 20,
+};
 
 
 
@@ -338,16 +400,26 @@ void promptTotalPrice() {
       totalPrice += item.quantity! * item.price;
     }
 
-    response = "The total price of all items in your cart is \$${totalPrice.toStringAsFixed(2)}.";
+    response = "The total price of all items in your cart is \Rs ${totalPrice.toStringAsFixed(2)}.";
   }
+}
+
+Future<void> _loadDataAndFilter() async {
+  // Wait for both cart items and products to load
+  await Future.wait([
+    _loadCartItemsFromSharedPreferences(),
+    fetchProducts()
+  ]);
+
+  // Once both are done, filter the cart items
+  _filterCartItems();
 }
 
   @override
   void initState() {
     super.initState();
     _initSpeech();
-    _loadCartItemsFromSharedPreferences();
-    fetchProducts(); //to fetch all products
+    _loadDataAndFilter();
   }
 
   void _initSpeech() async {
@@ -500,7 +572,7 @@ void promptTotalPrice() {
                           style: const TextStyle(fontSize: 16),
                         ),
                         Text(
-                          "Price: \$${groceryItem.price.toStringAsFixed(2)}",
+                          "Price: \Rs ${groceryItem.price.toStringAsFixed(2)}",
                           style: const TextStyle(fontSize: 16),
                         ),
                         Text(
