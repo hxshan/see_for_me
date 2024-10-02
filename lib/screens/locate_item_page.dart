@@ -6,7 +6,6 @@ import 'package:see_for_me/data/node.dart';
 import 'package:see_for_me/data/store_map.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
 import 'package:see_for_me/data/tile.dart';
 import 'package:see_for_me/services/Direction.dart';
 import 'package:see_for_me/services/compass.dart';
@@ -28,6 +27,7 @@ class _LocateItemPageState extends State<LocateItemPage> {
   List<List<Tile>> grid = [];
   final FlutterTts flutterTts = FlutterTts();
   final SpeechToText _speechToText = SpeechToText();
+  List<Node> path = [];
 
   bool _speechEnabled = false;
   String wordsSpoken = "";
@@ -54,7 +54,7 @@ class _LocateItemPageState extends State<LocateItemPage> {
 
   @override
   void dispose() {
-    _compass.stopListening(); // Stop the compass listener
+    _compass.stopListening();
     super.dispose();
   }
 
@@ -88,10 +88,13 @@ class _LocateItemPageState extends State<LocateItemPage> {
 
   void findPath(Tile? startTile, Tile? endTile) {
     if (startTile == null || endTile == null) return;
-    List<Node> path = findPathWithAStar(grid, startTile, endTile);
+    List<Node> pathList = findPathWithAStar(grid, startTile, endTile);
+    setState(() {
+      path = pathList;
+    });
     //List<Node> path = jumpPointSearch(grid, startTile, endTile);
-    print(path);
-    narratePath(path, _currentFacing);
+    //narratePath(path, _currentFacing);
+    //Navigator.pushNamed(context, '/home');
   }
 
   void processCommand(SpeechRecognitionResult result) {
@@ -103,23 +106,37 @@ class _LocateItemPageState extends State<LocateItemPage> {
     if (spokenWords.contains('find')) {
       List<String> wordsList = spokenWords.split(' ');
       wordsList.removeWhere((word) => word == 'find');
+
       Tile? startTile = grid[1][1];
       Tile? endTile = null;
+      print(shelfTiles.length);
       for (var tile in shelfTiles) {
         if (tile.products.isNotEmpty) {
           for (var prod in tile.products) {
-            if (wordsList.contains(prod.productName)) {
+            if (wordsList.any((word) =>
+                word.toLowerCase() == prod.productName.toLowerCase())) {
               endTile = tile;
               break;
             }
           }
         }
       }
+
       if (endTile == null) {
         speak("Sorry, I could not find your product");
         return;
       }
       findPath(startTile, endTile);
+      print(path);
+      var curr = path[0];
+      while (curr != path[path.length - 1]) {
+        print("object");
+        curr = generateNarrationUntilTurn(path, curr, _currentFacing);
+      }
+
+      Navigator.pushNamed(context, '/home');
+    } else if (spokenWords.contains('go back')) {
+      Navigator.pushNamed(context, '/home');
     } else {
       speak("Sorry! I didn't get that");
     }
@@ -127,7 +144,7 @@ class _LocateItemPageState extends State<LocateItemPage> {
 
   Future<StoreMap> fetchStoreMap() async {
     final response =
-        await http.get(Uri.parse('http://10.0.2.2:5224/api/floor/1'));
+        await http.get(Uri.parse('http://10.0.2.2:5224/api/floor/first'));
 
     if (response.statusCode == 200) {
       StoreMap map = StoreMap.fromJson(jsonDecode(response.body));
@@ -141,6 +158,7 @@ class _LocateItemPageState extends State<LocateItemPage> {
 
       return map;
     } else {
+      speak("Sorry an Unexpected error occured");
       throw Exception('Failed to load store map');
     }
   }

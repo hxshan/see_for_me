@@ -4,13 +4,13 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:shared_preferences/shared_preferences.dart'; //shared preference
-import 'package:see_for_me/models/cartItem.dart';//cart class
+import 'package:see_for_me/models/cartItem.dart'; //cart class
 import 'dart:convert'; // For json.decode
 import 'package:see_for_me/ordering/searchResponses.dart';
 import 'package:see_for_me/models/user.dart';
 import 'package:see_for_me/models/itemsRequest.dart';
 import 'package:http/http.dart' as http;
-
+import 'package:see_for_me/models/client.dart';
 
 
 class CheckoutPage extends StatefulWidget {

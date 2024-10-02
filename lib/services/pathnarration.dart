@@ -1,5 +1,6 @@
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:see_for_me/data/node.dart';
+import 'package:see_for_me/data/tile.dart';
 
 import 'Direction.dart';
 
@@ -9,6 +10,85 @@ Future<void> speak(String text) async {
   await flutterTts.setLanguage("en-US");
   await flutterTts.setPitch(1);
   await flutterTts.speak(text);
+}
+
+Node generateNarrationUntilTurn(
+    List<Node> path, Node currentNode, Direction initialDirection) {
+  if (path.isEmpty) {
+    speak("Path Not Found");
+    return currentNode;
+  }
+
+  StringBuffer narration = StringBuffer();
+  Direction? currentDirection = initialDirection;
+  int stepCount = 0;
+
+  for (int i = 1; i < path.length; i++) {
+    // Get the previous and current tiles
+    Tile previousTile = path[i - 1].tile;
+    Tile currentTile = path[i].tile;
+
+    // Determine the direction based on the x and y differences
+    Direction newDirection = getDirection(previousTile, currentTile);
+
+    if (newDirection == currentDirection) {
+      // Continue counting steps in the same direction
+      stepCount++;
+      currentNode = path[i];
+    } else {
+      // Narrate the current direction and step count
+      if (stepCount > 0) {
+        narration.write('Walk $stepCount steps forward.\n');
+      }
+
+      // Determine the turn direction
+      String turnDirection = describeTurn(currentDirection!, newDirection);
+      narration.write('$turnDirection.\n');
+
+      speak(narration.toString());
+      // Reset step count and update the current direction
+      stepCount = 1;
+      currentDirection = newDirection;
+    }
+  }
+
+  // Narrate the last direction and step count
+  if (stepCount > 0) {
+    narration.write('Walk $stepCount steps forward.');
+  }
+  speak(narration.toString());
+  return currentNode;
+}
+
+Direction getDirection(Tile from, Tile to) {
+  if (to.y < from.y) {
+    return Direction.north;
+  } else if (to.y > from.y) {
+    return Direction.south;
+  } else if (to.x < from.x) {
+    return Direction.west;
+  } else {
+    return Direction.east;
+  }
+}
+
+String describeTurn(Direction currentDirection, Direction targetDirection) {
+  if (currentDirection == targetDirection) {
+    return 'you are already facing that direction';
+  }
+
+  switch (currentDirection) {
+    case Direction.north:
+      return (targetDirection == Direction.west) ? 'turn left' : 'turn right';
+    case Direction.south:
+      return (targetDirection == Direction.east) ? 'turn left' : 'turn right';
+    case Direction.east:
+      return (targetDirection == Direction.north) ? 'turn left' : 'turn right';
+    case Direction.west:
+      return (targetDirection == Direction.south) ? 'turn left' : 'turn right';
+    default:
+      return 'unknown direction';
+  }
 }
 
 Future<void> narratePath(List<Node> path, Direction current) async {

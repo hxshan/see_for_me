@@ -1,11 +1,11 @@
-class User {
+class Client {
   String id;
   String name;
   String address;
   String email;
   String phoneNumber;
 
-  User({
+  Client({
     required this.id,
     required this.name,
     required this.address,
