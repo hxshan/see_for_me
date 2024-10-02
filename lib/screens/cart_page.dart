@@ -148,7 +148,7 @@ class _CartPageState extends State<CartPage> {
     promptTotalPrice();
   } else if(spokenWords.contains("current page")){
     announceCurrentPage("Manage cart");
-  } else if(spokenWords.contains("clear card")){
+  } else if(spokenWords.contains("clear")){
     removeAllItems();
   } else if (isReviewing) {
     handleReviewCommand(spokenWords);
